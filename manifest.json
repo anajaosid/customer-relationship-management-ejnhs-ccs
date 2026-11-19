@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "RelayDesk Call Lab",
-  "short_name": "RelayDesk",
+  "name": "EJNHS CCS CRM",
+  "short_name": "EJNHS CCS CRM",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

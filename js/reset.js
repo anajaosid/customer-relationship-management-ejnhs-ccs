@@ -1,4 +1,4 @@
-// Shared classroom computers: remove only RelayDesk history, not other apps' data.
+// Shared classroom computers: remove only EJNHS CCS CRM history, not other apps' data.
 function confirmHistoryReset() {
   show(
     `<h2>Clear practice history?</h2><p>This deletes completed sessions and case notes saved in this browser. It does not end an active call.</p></div><div class="dialog-footer">${button("Keep history", "closeModal()")}${button("Clear history", "clearSavedHistory()", "dark")}</div>`,

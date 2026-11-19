@@ -273,7 +273,7 @@ function render() {
     ...(active ? ["Active session"] : []),
   ];
   $("#shell").innerHTML =
-    `<header class="mast"><div class="mastinner"><button class="brand mastbrand" onclick="go('Overview')" aria-label="RelayDesk home"><span class="logomark"><i></i><i></i><i></i></span><b>RelayDesk</b></button><nav class="mastnav" aria-label="Main navigation" id="mainnav">${links.map((n) => `<button class="${view === n || (view === "Scenario library" && n === "Overview") ? "selected" : ""}" onclick="go('${n}')" ${view === n ? 'aria-current="page"' : ""}>${navLabels[n]}</button>`).join("")}</nav><div class="masttools">${button("Join with a code", "joinForm(null)", "dark", "radio")}<button class="mobilemenu iconbtn" aria-controls="mainnav" aria-expanded="false" aria-label="Toggle navigation" onclick="drawer(!mobile)">${I("menu")}</button></div></div></header><main class="main"><div class="content" id="content"></div></main>`;
+    `<header class="mast"><div class="mastinner"><button class="brand mastbrand" onclick="go('Overview')" aria-label="EJNHS CCS CRM home"><span class="logomark"><i></i><i></i><i></i></span><b><span class="school-name">EJNHS CCS</span> CRM</b></button><nav class="mastnav" aria-label="Main navigation" id="mainnav">${links.map((n) => `<button class="${view === n || (view === "Scenario library" && n === "Overview") ? "selected" : ""}" onclick="go('${n}')" ${view === n ? 'aria-current="page"' : ""}>${navLabels[n]}</button>`).join("")}</nav><div class="masttools">${button("Join with a code", "joinForm(null)", "dark", "radio")}<button class="mobilemenu iconbtn" aria-controls="mainnav" aria-expanded="false" aria-label="Toggle navigation" onclick="drawer(!mobile)">${I("menu")}</button></div></div></header><main class="main"><div class="content" id="content"></div></main>`;
   let body =
     view === "Overview"
       ? overview()
@@ -288,7 +288,7 @@ function render() {
               : consolePage();
   $("#content").innerHTML =
     body +
-    `<footer class="page-foot"><span>${I("audio-lines")}RelayDesk <i>/</i> CCS call lab</span><span>Fictional cases. No sign-in needed.</span></footer>`;
+    `<footer class="page-foot"><span>${I("audio-lines")}EJNHS CCS CRM <i>/</i> Call lab</span><span>Fictional cases. No sign-in needed.</span></footer>`;
   tick();
 }
 function browse() {
@@ -387,7 +387,7 @@ function roomPage() {
       "Live call room",
       "Practice together. One person takes the agent seat; the other plays the customer.",
     ) +
-    `<div class="livegrid"><section class="panel"><span class="tile" style="--tint:#fff0e4;--accent:#ad653c">${I("headset")}</span><div class="case-id">01 / AGENT SEAT</div><h3>Host a practice call</h3><p>Choose an industry, create your room, and share its code with your partner.</p><label class="field">Practice scenario<select id="roomscenario">${D.map((d) => `<option value="${d.id}">${d.name}</option>`).join("")}</select></label>${button("Create live room", "startLive(+$('#roomscenario').value)", "orange", "plus")}</section><section class="panel"><span class="tile" style="--tint:#e9f1fa;--accent:#5483ae">${I("users")}</span><div class="case-id">02 / CUSTOMER SEAT</div><h3>Join your partner</h3><p>Enter the agent’s six-character code and allow microphone access to place your practice call.</p><form onsubmit="event.preventDefault();joinLive(this.code.value.trim().toUpperCase())"><label class="field">Room code<input name="code" placeholder="e.g. A3F291" pattern="[A-Fa-f0-9]{6}" maxlength="6" required autocapitalize="characters" autocomplete="off"></label><button class="btn dark">${I("radio")}Join room</button></form></section></div><div class="privacy">${I("shield-check")}No account or database required. Audio is live and is never recorded by RelayDesk.</div>`
+    `<div class="livegrid"><section class="panel"><span class="tile" style="--tint:#fff0e4;--accent:#ad653c">${I("headset")}</span><div class="case-id">01 / AGENT SEAT</div><h3>Host a practice call</h3><p>Choose an industry, create your room, and share its code with your partner.</p><label class="field">Practice scenario<select id="roomscenario">${D.map((d) => `<option value="${d.id}">${d.name}</option>`).join("")}</select></label>${button("Create live room", "startLive(+$('#roomscenario').value)", "orange", "plus")}</section><section class="panel"><span class="tile" style="--tint:#e9f1fa;--accent:#5483ae">${I("users")}</span><div class="case-id">02 / CUSTOMER SEAT</div><h3>Join your partner</h3><p>Enter the agent’s six-character code and allow microphone access to place your practice call.</p><form onsubmit="event.preventDefault();joinLive(this.code.value.trim().toUpperCase())"><label class="field">Room code<input name="code" placeholder="e.g. A3F291" pattern="[A-Fa-f0-9]{6}" maxlength="6" required autocapitalize="characters" autocomplete="off"></label><button class="btn dark">${I("radio")}Join room</button></form></section></div><div class="privacy">${I("shield-check")}No account or database required. Audio is live and is never recorded by EJNHS CCS CRM.</div>`
   );
 }
 function historyPage() {
@@ -438,7 +438,7 @@ function guide() {
     [
       "06",
       "Understand your data",
-      "Solo customers use scripted replies, not a real customer line. Rooms are temporary. On the static site, PeerJS Cloud helps devices find each other. RelayDesk does not record messages or audio. Completed cases stay on this device. No name, email, or password is collected.",
+      "Solo customers use scripted replies, not a real customer line. Rooms are temporary. On the static site, PeerJS Cloud helps devices find each other. EJNHS CCS CRM does not record messages or audio. Completed cases stay on this device. No name, email, or password is collected.",
     ],
   ];
   return (
@@ -677,7 +677,7 @@ async function shareInvite() {
   if (!active || !live?.code) return;
   if (location.hostname.endsWith(".e2b.app")) {
     show(
-      `<h2>Share from the public site</h2><p>This preview requires workspace access. Deploy RelayDesk on a public host first, then create a room there to get a classmate invitation link.</p></div>`,
+      `<h2>Share from the public site</h2><p>This preview requires workspace access. Deploy EJNHS CCS CRM on a public host first, then create a room there to get a classmate invitation link.</p></div>`,
     );
     return;
   }
@@ -743,7 +743,7 @@ function lobby() {
       d.name,
       `${a.role} seat · Two-person voice practice`,
     ) +
-    `<section class="lobby"><div class="lobbyhead"><span>${I("radio")} PRACTICE LINE</span><span><i class="dot"></i> ${incoming ? "Inbound call" : host ? "Room open" : "Calling"}</span></div><div class="lobbybody"><span class="call-round ${incoming ? "ringing" : ""}">${I(incoming ? "phone-call" : host ? "headset" : "phone-call")}</span><div class="case-id">${host ? "AGENT STATION" : "CUSTOMER STATION"}</div><h2>${incoming ? "Incoming customer call" : host ? "Your room is ready" : "Calling your agent…"}</h2><p>${incoming ? `${d.person} is on the line. Answer to begin the ${d.name.toLowerCase()} case.` : host ? "Keep this tab open. Send your classmate the invitation link, or give them the code to enter on this site." : "Your agent has been notified. You’ll be connected when they answer."}</p>${host && !incoming ? `<div class="invitecode"><small>ROOM CODE</small><strong class="roomcode">${l.code}</strong><div class="actions callcenter">${button("Copy invite link", "shareInvite()", "dark", "arrow-up-right")}${button("Copy code", "copyCode()", "", "copy")}</div></div>` : ""}${incoming ? `<div class="actions callcenter">${button("Answer call", "answerIncoming()", "answer", "phone-call")}${button("Decline", "cancelRoom()", "end-call", "phone-off")}</div>` : `<div class="actions callcenter">${button(l.micOn ? "Mute microphone" : "Enable microphone", "toggleMic()", "", l.micOn ? "mic" : "mic-off")}${button(host ? "Close room" : "Cancel call", "cancelRoom()", "", "phone-off")}</div>`}<small class="callhint">${I("headphones")} ${incoming ? "Answering requests microphone access." : "Use headphones for clearer two-way audio."}</small></div></section>`
+    `<section class="lobby"><div class="lobbyhead"><span>${I("radio")} PRACTICE LINE</span><span><i class="dot"></i> ${incoming ? "Inbound call" : host ? "Room open" : "Calling"}</span></div><div class="lobbybody"><span class="call-round ${incoming ? "ringing" : ""}">${I(incoming ? "phone-call" : host ? "headset" : "phone-call")}</span><div class="case-id">${host ? "AGENT STATION" : "CUSTOMER STATION"}</div><h2>${incoming ? "Incoming customer call" : host ? "Your room is ready" : "Calling your agent…"}</h2><p>${incoming ? `${d.person} is on the line. Answer to begin the ${d.name.toLowerCase()} case.` : host ? "Keep this tab open. Send your classmate the invitation link, or give them the code to enter on this site." : "Your agent has been notified. You’ll be connected when they answer."}</p>${host && !incoming ? `<div class="invitecode"><small>ROOM CODE</small><strong class="roomcode">${l.code}</strong><div class="actions callcenter">${button("Copy invite link", "shareInvite()", "dark", "arrow-up-right")}${button("Copy code", "copyCode()", "", "copy")}</div></div>` : ""}${incoming ? `<div class="actions callcenter">${button("Answer call", "answerIncoming()", "answer", "phone-call")}${button("Decline", "cancelRoom()", "end-call", "phone-off")}${button(callRinger.source && callRinger.context?.state === "running" ? "Silence ringer" : "Enable ringer", "toggleCallRinger()", "", "volume-2")}</div>` : `<div class="actions callcenter">${button(l.micOn ? "Mute microphone" : "Enable microphone", "toggleMic()", "", l.micOn ? "mic" : "mic-off")}${button(host ? "Close room" : "Cancel call", "cancelRoom()", "", "phone-off")}</div>`}<small class="callhint">${I("headphones")} ${incoming ? "Answering requests microphone access." : "Use headphones for clearer two-way audio."}</small></div></section>`
   );
 }
 

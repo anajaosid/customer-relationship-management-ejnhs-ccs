@@ -162,6 +162,7 @@ function connectRoom(t, id, code) {
     return toast(
       "This browser does not support WebRTC. Try a current browser.",
     );
+  if (t === "create") callRinger.arm();
   connecting = true;
   toast(
     t === "create" ? "Opening your practice room…" : "Finding your partner…",
@@ -226,6 +227,7 @@ function connectRoom(t, id, code) {
           return;
         }
         if (m.t === "left") {
+          callRinger.release();
           if (active?.role === "Agent") active.pane = "wrap";
           if (!active) {
             disconnect();
@@ -247,6 +249,7 @@ function connectRoom(t, id, code) {
           closeModal();
           l.phase = "incoming";
           l.status = "Incoming customer call";
+          callRinger.start();
           go("Active session");
         } else if (m.t === "offer") {
           l.phase = "connecting";
@@ -276,6 +279,7 @@ function connectRoom(t, id, code) {
     clearTimeout(timeout);
     if (live !== l) return;
     connecting = false;
+    callRinger.release();
     if (active) {
       l.code = "";
       if (l.ch?.readyState !== "open") l.phase = "ended";
@@ -297,6 +301,7 @@ function reportMic(l) {
 async function answerIncoming() {
   let l = live;
   if (!l || l.phase !== "incoming") return;
+  callRinger.release();
   l.phase = "connecting";
   setLiveStatus("Connecting voice call");
   if (!l.stream) toggleMic();
@@ -318,6 +323,7 @@ function cancelRoom() {
   toast("Practice line closed.");
 }
 function endCall() {
+  callRinger.release();
   if (active?.role === "Agent") active.pane = "wrap";
   let l = live;
   if (!l) return;
@@ -506,6 +512,7 @@ function sendChat(el) {
   refreshChat();
 }
 function disconnect() {
+  callRinger.release();
   let l = live;
   live = null;
   connecting = false;
