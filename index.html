@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#172a33" />
+    <meta
+      name="description"
+      content="Practice customer service with fictional CRM cases and two-person voice calls. No account required."
+    />
+    <title>RelayDesk — Practice floor</title>
+    <link rel="manifest" href="./manifest.json" />
+    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+    <link
+      rel="preload"
+      href="./assets/fonts/source-sans-3-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link rel="stylesheet" href="./css/main.css?v=1" />
+    <script defer src="./vendor/peerjs.min.js"></script>
+    <script defer src="./js/storage.js?v=1"></script>
+    <script defer src="./js/reset.js?v=1"></script>
+    <script defer src="./js/p2p.js?v=1"></script>
+    <script defer src="./js/app.js?v=1"></script>
+  </head>
+  <body>
+    <div id="shell"></div>
+    <noscript>Enable JavaScript to use the call lab.</noscript>
+    <div id="modal"></div>
+    <div id="toast" role="status" aria-live="polite"></div>
+    <audio id="remote" autoplay></audio>
+  </body>
+</html>
