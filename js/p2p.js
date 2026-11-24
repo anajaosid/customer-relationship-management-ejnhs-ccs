@@ -36,7 +36,7 @@ class P2PRoom {
     this.code = code;
     this.rtcConfig = await roomIceConfig();
     if (this.closed) return;
-    const peer = new Peer(prefix + (host ? code : crypto.randomUUID()), {
+    const peer = new Peer(prefix + (host ? code : Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,"0")).join("")), {
       debug: 0,
       ...(window.RELAY_PEER_OPTIONS || {}),
       config: this.rtcConfig,
@@ -48,6 +48,7 @@ class P2PRoom {
       if (host) this.emit({ t: "created", code });
       else {
         this.emit({ t: "progress", message: "Contacting the room creator…" });
+        this.directoryOpen=true;
         const call = peer.connect(prefix + code, {
           reliable: true,
           serialization: "json",
@@ -87,11 +88,13 @@ class P2PRoom {
         return;
       }
       this.link = call;
+      this.emit({t:"progress",message:"Join request received. Checking the path between devices…"});
       this.listen(call, true);
       const pending = setTimeout(() => {
         if (this.link === call && !this.introduced) {
           this.link = null;
           call.close();
+          this.emit({t:"progress",message:"The join request arrived, but no room connection opened. Keep this room open and have your partner retry. If it repeats, test TURN on both devices."});
         }
       }, 45000);
       call.on("close", () => clearTimeout(pending));
@@ -123,6 +126,10 @@ class P2PRoom {
     });
   }
   listen(link, host) {
+    const pc=link.peerConnection;
+    if(!host && pc)pc.addEventListener('signalingstatechange',()=>{
+      if(!this.closed && !this.introduced && pc.remoteDescription && !this.answeredOffer){this.answeredOffer=true;this.emit({t:'progress',message:'Creator replied. Checking direct and relay paths between devices…'})}
+    });
     link.on("data", (m) => {
       if (this.closed || this.link !== link || !m || typeof m !== "object")
         return;
@@ -174,19 +181,29 @@ class P2PRoom {
     link.on("close", () => {
       if (this.link !== link) return;
       if (host && !this.introduced) {
+        this.emit({t:'progress',message:'Join request received, but the connection closed before entry. The room is open for another try.'});
         this.link = null;
         return;
       }
+      if(!host&&!this.introduced){this.emit({t:'error',message:this.joinFailure()});return}
       this.depart();
     });
     link.on("error", () => {
       if (this.link !== link) return;
       if (host && !this.introduced) {
+        this.emit({t:'progress',message:'Join request received, but the connection closed before entry. The room is open for another try.'});
         this.link = null;
         return;
       }
+      if(!host&&!this.introduced){this.emit({t:'error',message:this.joinFailure()});return}
       this.depart();
     });
+  }
+  joinFailure(){
+    if(this.ishost||!this.directoryOpen)return "The public room directory did not finish connecting. Check internet access on this device and retry.";
+    if(this.link?.open)return "The room connection opened, but the creator did not confirm entry. Reopen the same site on both devices and create a fresh room.";
+    if(this.answeredOffer || this.link?.peerConnection?.remoteDescription)return "The creator replied, but WebRTC could not open the room connection. On a hotspot, allow microphone and local network access if prompted. Run Test network on both devices. If no relay is reachable, configure a managed TURN relay or try another Wi-Fi network.";
+    return "The directory connected, but this device did not receive a reply from the creator. Keep the laptop tab awake. Check whether it says ‘Join request received’, then retry using its fresh invite.";
   }
   depart() {
     if (this.closed) return;
@@ -215,7 +232,19 @@ function joinLive(code, id = null) {
   if (active) return resumePrompt();
   roomSetup("join", id, code);
 }
-function connectRoom(t, id, code, profile) {
+// Browsers may restrict the local ICE addresses available to a data-only call
+// before media permission. Request it from the user's click, before constructing Peer.
+async function prepareRoomMic(l){
+  if(!navigator.mediaDevices?.getUserMedia)return;
+  let expired=false,timer;
+  const request=navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true},video:false}).then(stream=>{
+    if(expired||live!==l||l.ws.closed){stream.getTracks().forEach(t=>t.stop());return}
+    stream.getAudioTracks().forEach(t=>t.enabled=false); l.stream=stream;l.preparedMic=true;
+  }).catch(()=>{});
+  try{await Promise.race([request,new Promise(resolve=>{timer=setTimeout(resolve,10000)})])}finally{expired=true;clearTimeout(timer)}
+}
+function activatePreparedMic(l){if(!l.preparedMic)return;l.preparedMic=false;l.micOn=true;l.stream?.getAudioTracks().forEach(t=>t.enabled=true)}
+function connectRoom(t, id, code, profile, prepareMic=false) {
   if (connecting) return;
   closeModal();
   if (!navigator.onLine)
@@ -254,19 +283,27 @@ function connectRoom(t, id, code, profile) {
   show(
     `<div class="eyebrow gray">${D[id].direction} / ${esc(profile.role)}</div><h2>${t === "create" ? "Creating your room" : "Joining your room"}</h2><p id="join-progress" role="status">Connecting to the public room directory…</p><div class="actions setup-actions">${button("Cancel", "disconnect();closeModal()")}</div></div>`,
   );
-  const timeout = setTimeout(() => {
+  const progress=document.getElementById('join-progress');
+  if(prepareMic)progress.textContent='Allow microphone access if prompted. Preparing the room connection…';
+  const micReady=prepareMic?prepareRoomMic(l):Promise.resolve();
+  let timeout;
+  ws.onopen=async()=>{
+    await micReady;if(live!==l||ws.closed)return;
+    progress.textContent='Connecting to the public room directory…';
+    timeout = setTimeout(() => {
     if (connecting && live === l) {
+      const reason=ws.joinFailure();
       disconnect();
       roomSetup(
         t,
         id,
         code,
-        "Could not reach your partner. Check the room code and run Test network on both devices. A blocked network may require a school TURN relay.",
+        reason,
         profile,
       );
     }
   }, 55000);
-  ws.onopen = () => ws.send(JSON.stringify({ t, scenario: id, code, profile }));
+  ws.send(JSON.stringify({ t, scenario: id, code, profile }));};
   let chain = Promise.resolve();
   ws.onmessage = (e) => {
     chain = chain
@@ -276,6 +313,7 @@ function connectRoom(t, id, code, profile) {
         if (m.t === "progress") {
           const el = $("#join-progress");
           if (el) el.textContent = m.message;
+          if(l.isCreator && l.phase==='waiting'){l.joinNotice=m.message;const n=document.getElementById('join-notice');if(n)n.textContent=m.message}
           return;
         }
         if (m.t === "error") {
@@ -346,6 +384,7 @@ function connectRoom(t, id, code, profile) {
         } else if (m.t === "offer") {
           l.phase = "connecting";
           setLiveStatus("Connecting voice call");
+          activatePreparedMic(l);
           let pc = await peer(l);
           await pc.setRemoteDescription(m.sdp);
           // Use the transceiver from the agent's offer, not an unnegotiated second sender.
@@ -415,6 +454,7 @@ async function answerIncoming() {
   callRinger.release();
   l.phase = "connecting";
   setLiveStatus("Connecting voice call");
+  activatePreparedMic(l);
   if (!l.stream) await Promise.race([toggleMic(),new Promise(r=>setTimeout(r,1800))]);
   if(!usableRoom(l))return;
   if(l.voiceMethod==='classic'){if(startClassic(l))return;fallbackVoice(l);return}
@@ -570,7 +610,7 @@ async function toggleMic() {
   if (!l.code && l.ch?.readyState !== "open")
     return toast("This room has ended. Start a new room for another call.");
   if (l.stream) {
-    l.micOn = !l.micOn;
+    l.preparedMic=false;l.micOn = !l.micOn;
     l.stream.getTracks().forEach((t) => (t.enabled = l.micOn));
     reportMic(l);
     render();

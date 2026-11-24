@@ -24,3 +24,9 @@ Publish, reload, and run **Test network** on each device. To verify only the rel
 ## Two-device check
 
 Open the same deployed HTTPS address on two devices. Test once on shared Wi-Fi, then create a fresh room with one phone on mobile data (Wi-Fi off). Speak a different phrase on each end and have the other person repeat it. Test mute, chat and hang-up. Try an outbound and an inbound case to check who answers. A direct or relayed route label describes the active WebRTC path; it is not a guarantee for other networks.
+
+## Laptop tethered to the phone that is joining
+
+Use the same published HTTPS site in a full browser on both devices. Leave **Prepare microphone before connecting** selected and allow the microphone and local network if prompted. Some browsers make more local connection candidates available after microphone permission; this cannot override hotspot isolation. The prepared track stays muted and is not attached to any network sender before an answer. You can uncheck the option to try joining without early microphone access.
+
+Watch the waiting laptop. **Join request received** means the directory delivered the phone’s request. **Creator replied** on the phone means the signaling round trip worked. A timeout after that points to the device-to-device WebRTC path, not an incorrect code. Run **Test network** on both devices. If direct traffic is blocked and there is no reachable TURN relay, configure `browserIceServersUrl` as described above, or test on another Wi-Fi network. The distributed site does not include a dedicated managed TURN subscription. Keep any existing restricted, browser-safe relay URL when updating.

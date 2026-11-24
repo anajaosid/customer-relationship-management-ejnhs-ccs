@@ -17,7 +17,7 @@ function receiveClassic(ws,c){const l=live;
  if(!l||l.ws!==ws||!usableRoom(l)||!l.isCreator||!ws.introduced||c.peer!==ws.link?.peer||c.metadata?.room!==l.code||c.metadata?.kind!=='ccs-voice'||l.voiceMethod!=='classic'||l.phase!=='ringing'||l.classicCall){c.close();return}
  l.phase='connecting';setLiveStatus('Connecting voice call');
  if(!l.stream){c.close();fallbackVoice(l);return}
- try{c.answer(l.stream);bindClassicCall(l,c)}catch{c.close();fallbackVoice(l)}
+ try{activatePreparedMic(l);c.answer(l.stream);bindClassicCall(l,c)}catch{c.close();fallbackVoice(l)}
 }
 function startClassic(l){
  if(!usableRoom(l)||!l.stream)return false;

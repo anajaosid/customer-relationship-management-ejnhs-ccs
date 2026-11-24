@@ -57,6 +57,7 @@ function roomSetup(mode, id, code = "", error = "", draft = null) {
  <div id="seat-summary" class="brief">${seatSummary(mode, id)}</div>
  <label class="field"><span id="profile-name-label">${role || "Your"} practice name</span><input name="practiceName" required maxlength="48" autocomplete="off" value="${esc(draft?.name || "")}" placeholder="e.g. Alex Reyes"></label>
  <div id="customer-fields" ${role === "Customer" ? "" : "hidden"}><label class="field">City or branch <small>(optional)</small><input name="city" maxlength="70" value="${esc(draft?.city || "")}" autocomplete="off"></label><label class="field">Fictional callback number <small>(optional)</small><input name="callback" maxlength="32" value="${esc(draft?.callback || "")}" autocomplete="off"></label><label class="field">Reason for calling <small>(optional)</small><textarea name="concern" rows="2" maxlength="350" placeholder="Leave blank to use the scenario brief.">${esc(draft?.concern || "")}</textarea></label></div>
+ <label class="mic-prep"><input type="checkbox" name="prepareMic" checked><span>Prepare microphone before connecting<small>Recommended for phone hotspots. Allow the microphone and local network if your browser asks. No voice is sent before the call is answered.</small></span></label>
  <p class="sub">Use made-up details only. Your partner sees your practice profile.</p><p class="error" role="alert">${esc(error)}</p><div class="actions setup-actions"><button class="btn orange">${I(host ? "plus" : "phone-call")}${host ? "Create room" : "Join room"}</button>${button("Test network", "testRelay(this)", "", "wifi")}</div><p class="relay-result" role="status"></p></form></div>`);
 }
 function seatSummary(mode, id) {
@@ -97,5 +98,5 @@ function submitRoomSetup(f, mode, id) {
     el.practiceName.focus();
     return toast("Enter a practice name.");
   }
-  connectRoom(mode, id, code, profile);
+  connectRoom(mode, id, code, profile, el.prepareMic.checked);
 }
