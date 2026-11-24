@@ -2,7 +2,7 @@
 // PeerJS is bundled in vendor/. Assign RELAY_PEER_OPTIONS before app startup
 // only if your classroom uses a custom signaling or TURN service.
 /* WebSocket-like signaling adapter for a static Pages site. A PeerJS data connection
-   carries only room setup and SDP/ICE; the voice call starts when the agent answers. */
+   carries room setup, SDP/ICE and peer messages; the voice call starts when the joiner answers. */
 class P2PRoom {
   constructor() {
     this.readyState = 0;
@@ -28,13 +28,8 @@ class P2PRoom {
   }
   async register(m) {
     const host = m.t === "create",
-      token = crypto.getRandomValues(new Uint8Array(3));
-    const code = host
-      ? Array.from(token, (x) => x.toString(16).padStart(2, "0"))
-          .join("")
-          .toUpperCase()
-      : m.code;
-    const prefix = "ejnhs-ccs-v4-";
+      code = host ? makeRoomCode(m.scenario) : normalizeCode(m.code);
+    const prefix = "ejnhs-ccs-v6-";
     this.ishost = host;
     this.me = m.profile;
     this.scenario = m.scenario;
@@ -52,14 +47,21 @@ class P2PRoom {
       if (this.closed) return;
       if (host) this.emit({ t: "created", code });
       else {
+        this.emit({ t: "progress", message: "Contacting the room creator…" });
         const call = peer.connect(prefix + code, {
           reliable: true,
           serialization: "json",
-          metadata: { version: 4, scenario: m.scenario, role: m.profile.role },
+          metadata: { version: 6, scenario: m.scenario, role: m.profile.role },
         });
         this.listen(call, false);
         this.link = call;
-        call.on("open", () => call.send({ t: "intro", profile: this.me }));
+        call.on("open", () => {
+          this.emit({
+            t: "progress",
+            message: "Connected. Confirming your scenario…",
+          });
+          call.send({ t: "intro", profile: this.me });
+        });
       }
     });
     peer.on("connection", (call) => {
@@ -70,10 +72,10 @@ class P2PRoom {
       const meta = call.metadata || {};
       const reason = this.link
         ? "This room already has two participants."
-        : meta.version !== 4
+        : meta.version !== 6
           ? "Unsupported practice client."
           : meta.role !== otherSeat(this.me.role)
-            ? `The creator is the ${this.me.role.toLowerCase()}. Choose ${otherSeat(this.me.role)} to join this room.`
+            ? `The creator is the ${this.me.role.toLowerCase()}. Refresh both browsers and use a new room code.`
             : meta.scenario != null && meta.scenario !== m.scenario
               ? "This code belongs to a different scenario. Check the industry with your agent."
               : "";
@@ -91,8 +93,15 @@ class P2PRoom {
           this.link = null;
           call.close();
         }
-      }, 18000);
+      }, 45000);
       call.on("close", () => clearTimeout(pending));
+    });
+    peer.on("disconnected", () => {
+      if (!this.closed && !peer.destroyed && !this.introduced)
+        setTimeout(() => {
+          if (!this.closed && peer.disconnected && !peer.destroyed)
+            peer.reconnect();
+        }, 800);
     });
     peer.on("error", (err) => {
       if (this.closed || this.broker !== peer) return;
@@ -108,7 +117,7 @@ class P2PRoom {
         t: "error",
         message:
           err.type === "peer-unavailable"
-            ? "Room not found. Ask your partner to keep the room open and check the code."
+            ? "Room not found in the public directory. Ask the creator to keep their tab open and share a fresh code from this version."
             : "Could not reach the live room service. Check your network, then try again. Solo practice is still available.",
       });
     });
@@ -154,21 +163,29 @@ class P2PRoom {
       }
       if (
         !this.introduced ||
-        ![
-          "ice",
-          "left",
-          this.me.role === "Agent" ? "answer" : "offer",
-        ].includes(m.t)
+        !["ice", "room-app", "left", this.ishost ? "offer" : "answer"].includes(
+          m.t,
+        )
       )
         return;
       if (m.t === "left") this.depart();
       else this.emit(m);
     });
     link.on("close", () => {
-      if (this.link === link) this.depart();
+      if (this.link !== link) return;
+      if (host && !this.introduced) {
+        this.link = null;
+        return;
+      }
+      this.depart();
     });
     link.on("error", () => {
-      if (this.link === link) this.depart();
+      if (this.link !== link) return;
+      if (host && !this.introduced) {
+        this.link = null;
+        return;
+      }
+      this.depart();
     });
   }
   depart() {
@@ -207,7 +224,7 @@ function connectRoom(t, id, code, profile) {
     return toast(
       "This browser does not support WebRTC. Try a current browser.",
     );
-  if (profile.role === "Agent") callRinger.arm();
+  if (t === "join") callRinger.arm();
   connecting = true;
   toast(
     t === "create" ? "Opening your practice room…" : "Finding your partner…",
@@ -234,6 +251,9 @@ function connectRoom(t, id, code, profile) {
     micBusy: false,
   };
   live = l;
+  show(
+    `<div class="eyebrow gray">${D[id].direction} / ${esc(profile.role)}</div><h2>${t === "create" ? "Creating your room" : "Joining your room"}</h2><p id="join-progress" role="status">Connecting to the public room directory…</p><div class="actions setup-actions">${button("Cancel", "disconnect();closeModal()")}</div></div>`,
+  );
   const timeout = setTimeout(() => {
     if (connecting && live === l) {
       disconnect();
@@ -245,7 +265,7 @@ function connectRoom(t, id, code, profile) {
         profile,
       );
     }
-  }, 30000);
+  }, 55000);
   ws.onopen = () => ws.send(JSON.stringify({ t, scenario: id, code, profile }));
   let chain = Promise.resolve();
   ws.onmessage = (e) => {
@@ -253,6 +273,11 @@ function connectRoom(t, id, code, profile) {
       .then(async () => {
         if (live !== l) return;
         let m = JSON.parse(e.data);
+        if (m.t === "progress") {
+          const el = $("#join-progress");
+          if (el) el.textContent = m.message;
+          return;
+        }
         if (m.t === "error") {
           if (active) {
             setLiveStatus(m.message);
@@ -264,6 +289,7 @@ function connectRoom(t, id, code, profile) {
         }
         if (m.t === "created" || m.t === "joined") {
           clearTimeout(timeout);
+          closeModal();
           connecting = false;
           l.code = m.code;
           active = makeSession(m.scenario ?? id, "live", profile.role);
@@ -283,7 +309,13 @@ function connectRoom(t, id, code, profile) {
           if (active?.role === "Agent") active.pane = "wrap";
           if (!active) {
             disconnect();
-            toast("The room closed before the call started.");
+            roomSetup(
+              t,
+              id,
+              code,
+              "The connection closed before entry. Check the host tab is still open, then retry.",
+              profile,
+            );
             return;
           }
           l.endedAt = Date.now();
@@ -295,6 +327,15 @@ function connectRoom(t, id, code, profile) {
           l.stream = null;
           l.micOn = false;
           render();
+          return;
+        }
+        if (m.t === "room-app") {
+          if (
+            l.ch?.readyState === "open" &&
+            typeof m.body === "string" &&
+            m.body.length <= 5000
+          )
+            l.ch.onmessage?.({ data: m.body });
           return;
         }
         if (m.t === "peer") {
@@ -316,9 +357,11 @@ function connectRoom(t, id, code, profile) {
           await flushIce(l);
           await pc.setLocalDescription(await pc.createAnswer());
           signal(l, { t: "answer", sdp: pc.localDescription });
+          openRoomAudio(l);
         } else if (m.t === "answer") {
           await l.pc.setRemoteDescription(m.sdp);
           await flushIce(l);
+          openRoomAudio(l);
         } else if (m.t === "ice") {
           if (l.pc?.remoteDescription) await l.pc.addIceCandidate(m.candidate);
           else l.candidates.push(m.candidate);
@@ -353,12 +396,12 @@ function connectRoom(t, id, code, profile) {
 }
 function readyPair(l) {
   closeModal();
-  const agent = active.role === "Agent";
-  l.phase = agent ? "incoming" : "ringing";
-  l.status = agent ? "Incoming customer call" : "Calling the agent";
-  if (agent) callRinger.start();
+  const receiver = !l.isCreator;
+  l.phase = receiver ? "incoming" : "ringing";
+  l.status = receiver ? "Incoming call" : "Calling your partner";
+  if (receiver) callRinger.start();
   go("Active session");
-  if (!agent && !l.stream) toggleMic();
+  if (!receiver && !l.stream) toggleMic();
 }
 function reportMic(l) {
   if (l.ch?.readyState === "open")
@@ -374,7 +417,6 @@ async function answerIncoming() {
   try {
     let pc = await peer(l);
     if (live !== l || !l.code) return;
-    attachChannel(l, pc.createDataChannel("case-room"));
     await pc.setLocalDescription(await pc.createOffer());
     signal(l, { t: "offer", sdp: pc.localDescription });
   } catch {
@@ -423,12 +465,13 @@ function setLiveStatus(s) {
 }
 async function peer(l) {
   if (l.pc) return l.pc;
-  let iceServers = [{ urls: "stun:stun.l.google.com:19302" }];
-  iceServers = l.ws.iceServers || iceServers;
   if (live !== l) throw Error("Room closed");
-  let pc = new RTCPeerConnection({ ...l.ws.rtcConfig, iceServers });
+  // Add voice to the ICE route already established for this room.
+  const pc = l.ws.link?.peerConnection;
+  if (!pc || pc.connectionState === "closed")
+    throw Error("Room transport closed");
   l.pc = pc;
-  if (active.role === "Agent") {
+  if (!l.isCreator) {
     l.trans = pc.addTransceiver("audio", { direction: "sendrecv" });
     if (l.stream)
       await l.trans.sender.replaceTrack(l.stream.getAudioTracks()[0]);
@@ -443,7 +486,7 @@ async function peer(l) {
       .play()
       .catch(() => toast("Select Play partner audio to hear the call."));
   };
-  pc.ondatachannel = (e) => attachChannel(l, e.channel);
+
   pc.onconnectionstatechange = () => {
     if (live !== l || !l.code) return;
     if (pc.connectionState === "connected")
@@ -458,6 +501,18 @@ async function peer(l) {
 async function flushIce(l) {
   for (const c of l.candidates) await l.pc.addIceCandidate(c);
   l.candidates = [];
+}
+function openRoomAudio(l) {
+  if (live !== l || l.ch) return;
+  const channel = {
+    readyState: "open",
+    send: (body) => signal(l, { t: "room-app", body }),
+    close() {
+      this.readyState = "closed";
+    },
+  };
+  attachChannel(l, channel);
+  channel.onopen();
 }
 function attachChannel(l, ch) {
   l.ch = ch;

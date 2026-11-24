@@ -1,174 +1,55 @@
-# EJNHS CCS – Customer Relationship Management Practice
+# EJNHS CCS CRM
 
-A browser-based customer service and call center training platform designed to help EJNHS CCS students practice handling customer concerns, improve communication skills, and experience realistic customer service interactions.
+A plain HTML, CSS, and JavaScript call-center practice site for CCS students. There is no framework, npm install, build command, app server, account system, or database to set up.
 
-**Website:** https://anajaosid.github.io/customer-relationship-management-ejnhs-ccs/
+## Put it on GitHub Pages
 
----
+1. Extract the ZIP. Upload **its contents**, preserving the folders, to the root of a public GitHub repository. `index.html` must be at the top level, not inside another folder. Do not upload the ZIP itself as the website.
+2. In **Settings → Pages**, select **Deploy from a branch**, then **main** and **/ (root)**. Save.
+3. After deployment finishes, open **Visit site**. Send that HTTPS link to your classmates.
 
-## 1. Getting Started
+If you prefer keeping your existing `/docs` Pages setting, place the **same extracted contents inside `docs/`** instead. No paths need editing.
 
-1. Open the website using your browser.
-2. Wait for the homepage to load.
-3. Choose the practice feature you want to use.
-4. Follow the on-screen instructions.
+## Files you can edit
 
-No account registration is required.
+| File | Purpose |
+| --- | --- |
+| `index.html` | Entry page, stylesheet, and script loading order |
+| `css/main.css` | The responsive interface, fonts, navigation, forms and call controls |
+| `js/app.js` | Scenario data, screens, case notes and solo practice |
+| `js/p2p.js` | PeerJS room discovery, room codes, WebRTC voice, chat, microphone controls and hang-up |
+| `js/ringer.js` | Local double-ring sound on incoming calls, with a silence control |
+| `js/storage.js` | Browser-local history reads and writes |
+| `js/reset.js` | Confirmed deletion of EJNHS CCS CRM history only |
+| `service-worker.js` | Caches the app shell for offline solo practice after a successful first visit |
+| `manifest.json`, `icons/` | Home-screen name, colors and app icons |
+| `assets/`, `vendor/`, `licenses/` | Local fonts, illustrations, headset photo, icons and the bundled PeerJS client |
 
-## 2. Solo Practice
+The CSS and JavaScript are readable source files, not build artifacts. After editing JS or CSS, increment the matching `?v=` references in `index.html` and `service-worker.js` and the cache version in `service-worker.js`. This keeps offline copies consistent.
 
-Solo Practice allows you to practice handling customer conversations independently.
+## Practice
 
-1. Open **Solo Practice**.
-2. Choose a customer service scenario.
-3. Read the customer information and situation.
-4. Start the conversation.
-5. Respond to the customer's concerns using the available choices.
-6. Follow the conversation until the scenario is completed.
-7. Review the guidance and feedback provided.
+Choose **Create room**, enter a practice name and keep the tab open. The scenario determines both seats:
 
-Use this mode to improve your communication, problem-solving, and customer service skills.
+| Scenario | Creator (caller) | Joiner (answers) |
+| --- | --- | --- |
+| Inbound: Healthcare, Retail, Telecommunications | Customer | Agent |
+| Outbound: Network support, Banking, Travel | Agent | Customer |
 
-## 3. Live Practice Rooms
+Share the six-character code or invitation. **Join with a code** selects the correct case and role, even if the joiner initially opened another desk. The customer can enter fictional contact details and a reason for calling. The joiner's device rings, and the agent always gets the CRM controls. Neither student needs an account. Old room codes from previous versions are not valid in this release.
 
-Live Practice allows two students to participate in a simulated customer service call.
+On small screens, switch among **Call**, **Record**, and **Wrap-up**. Students without a partner can choose **Practice solo**. No sign-in is required. Use fictional information for training profiles. Accounts shown inside CRM cases are fictional customer records.
 
-There are two roles:
+## Local testing
 
-- **Agent** – The student who handles the customer's concern.
-- **Customer** – The student who acts as the customer and follows the assigned scenario.
+Use your editor's static **Live Server** feature, or any ordinary local HTTP server. Open its `localhost` URL in a browser. Do not double-click `index.html` to test microphones or offline installation: these need HTTPS or localhost. For two different devices, use the published HTTPS site.
 
-### Creating a Room (Agent)
+## Internet and privacy
 
-1. Open **Live Practice**.
-2. Select the option to create a room.
-3. Wait for the room code to appear.
-4. Share the six-character room code with your partner.
-5. Wait for the customer to join.
-6. When the incoming call appears, answer it to begin the practice session.
+The app runs entirely in the browser. Live rooms still need an internet connection to the external **PeerJS Cloud** signaling service so devices can find each other. Audio and messages travel over WebRTC and are not recorded by EJNHS CCS CRM. The broker sees connection metadata. A restrictive network can block signaling or require a TURN relay. If you run your own PeerServer, set `window.RELAY_PEER_OPTIONS` before `js/p2p.js` loads. Do not embed private, permanent TURN credentials in a public repository.
 
-### Joining a Room (Customer)
+Offline practice requires the app to have finished caching during an earlier online visit. A service worker does not enable offline calls. Completed case notes remain in localStorage on this browser. **History → Clear saved history** removes those notes, without touching another site's data. Active rooms and unsaved cases end when the tab closes.
 
-1. Open **Live Practice**.
-2. Select the option to join a room.
-3. Enter the six-character room code provided by the agent.
-4. Join the room.
-5. Wait for the agent to start the call.
-6. Follow your assigned customer scenario.
+## Different Wi-Fi or mobile data
 
-### During a Live Call
-
-Both participants can use the available call controls:
-
-- **Microphone** – Turn your microphone on or off.
-- **Answer** – Accept an incoming call.
-- **Call controls** – Manage the ongoing conversation.
-- **Messaging panel** – Exchange text messages when needed.
-
-Speak clearly and communicate naturally throughout the session.
-
-## 4. Customer Service Scenarios
-
-The website includes six fictional customer service scenarios.
-
-| Category | Customer Concern |
-|---|---|
-| Healthcare | Rescheduling a follow-up appointment |
-| Network Support | Unstable Wi-Fi connection |
-| Retail & E-commerce | Returning an item with the wrong size |
-| Banking & Finance | Duplicate card charge |
-| Travel & Hospitality | Changing a reservation after a flight change |
-| Telecommunications | Unexpected mobile data charge |
-
-Each scenario provides a different customer concern that requires proper communication and problem-solving.
-
-## 5. Handling Customer Concerns
-
-During a practice session, the agent should:
-
-1. Greet the customer professionally.
-2. Introduce themselves and offer assistance.
-3. Listen carefully to the customer's concern.
-4. Verify the necessary customer information when requested.
-5. Review the available customer record and case information.
-6. Explain the appropriate solution.
-7. Confirm whether the customer's concern has been addressed.
-8. End the conversation professionally.
-
-Always maintain a respectful and professional tone.
-
-## 6. After-Call Work (ACW)
-
-After completing a call, the agent can document the interaction.
-
-The available call dispositions include:
-
-- **Resolved** – The customer's concern has been successfully addressed.
-- **Follow-up Required** – Additional action is needed.
-- **Escalated** – The concern needs to be handled by another department or a higher-level representative.
-
-Complete the after-call notes and select the appropriate disposition based on the conversation.
-
-## 7. Session History
-
-The History section allows you to review your previous practice sessions.
-
-You can use it to:
-
-- Review completed practice activities.
-- Check previous session records.
-- Monitor your practice progress.
-- Clear saved session history when needed.
-
-Your session history is stored in your browser.
-
-## 8. Important Reminders
-
-- Use a working microphone when participating in Live Practice.
-- Allow microphone access when your browser requests permission.
-- Use a stable internet connection for Live Practice.
-- Make sure both participants are using the same room code.
-- Keep your communication professional.
-- Do not share actual personal or confidential customer information. The scenarios are fictional.
-
-**Note:** Solo Practice can work offline after the website has been loaded and its required resources have been cached. Live Practice requires an internet connection.
-
-## 9. Troubleshooting
-
-**The microphone is not working.**
-- Check whether your microphone is connected.
-- Allow microphone permissions in your browser.
-- Check that the correct microphone is selected.
-
-**I cannot join a room.**
-- Check whether the room code is correct.
-- Make sure the agent has already created the room.
-- Check your internet connection.
-
-**The other participant cannot hear me.**
-- Check whether your microphone is muted.
-- Allow microphone access.
-- Check your device's microphone settings.
-
-**The website is not loading properly.**
-- Refresh the page.
-- Check your internet connection.
-- Try opening the website again using an updated browser.
-
----
-
-## About This Project
-
-**EJNHS CCS – Customer Relationship Management Practice** is an educational project created to help students develop their customer service, communication, and call center skills through interactive simulations.
-
-### Project Credits
-
-| Name | Contribution |
-|---|---|
-| **Sid Anajao** | Creator and Developer – HTML, JavaScript, and PeerJS |
-| **Luiggie Placient** | UI/UX Designer – Website Design and User Interface |
-| **Cley Urbano** | Tester – Website Testing and Feedback |
-
-**Developed for:** Emilio Jacinto National High School – Contact Center Servicing (CCS)
-
-**Purpose:** To provide students with an interactive environment where they can practice customer service conversations, build confidence, and experience simulated call center situations.
+Click **Test network** in room setup to check TURN reachability. See [NETWORK-SETUP.md](NETWORK-SETUP.md) for the instructor relay setup, troubleshooting, and a two-device acceptance test.

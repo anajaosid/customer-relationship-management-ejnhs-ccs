@@ -5,21 +5,24 @@ async function roomIceConfig() {
     custom.iceServers || window.peerjs?.util?.defaultConfig?.iceServers;
   if (!iceServers?.length)
     iceServers = [{ urls: "stun:stun.l.google.com:19302" }];
-  if (settings.credentialEndpoint) {
-    const u = new URL(settings.credentialEndpoint);
+  if (settings.browserIceServersUrl || settings.credentialEndpoint) {
+    const u = new URL(
+      settings.browserIceServersUrl || settings.credentialEndpoint,
+    );
     if (u.protocol !== "https:")
       throw Error("The school TURN credential endpoint must use HTTPS.");
     const controller = new AbortController(),
       timer = setTimeout(() => controller.abort(), 10000);
     try {
       const res = await fetch(u, {
-        method: "POST",
+        method: settings.browserIceServersUrl ? "GET" : "POST",
         cache: "no-store",
         credentials: "omit",
         signal: controller.signal,
       });
       if (!res.ok) throw Error();
-      const data = await res.json();
+      const raw = await res.json();
+      const data = Array.isArray(raw) ? { iceServers: raw } : raw;
       if (
         !Array.isArray(data.iceServers) ||
         !data.iceServers.some(
@@ -88,7 +91,7 @@ async function testRelay(btn) {
     await pc.setLocalDescription(await pc.createOffer());
     report.textContent = (await result)
       ? "Relay reachable from this device. Test the other device too."
-      : "No relay was reachable. Direct calls may still work. For school Wi-Fi or mobile data, configure a TURN service with TLS on port 443 (see NETWORK-SETUP.md).";
+      : "No TURN relay was reachable from this network. Direct calls can still work. If joining times out, try another network or ask the site owner to configure a managed TURN URL in js/network-config.js.";
   } catch (e) {
     report.textContent = e.message || "Network test failed.";
   } finally {

@@ -1,30 +1,22 @@
-# Calls between different networks
+# GitHub Pages only: joining a practice room
 
-**Students do not have to share Wi-Fi. Both devices must open the latest public HTTPS site.** Close older tabs on both devices and create a fresh room after updating. Live rooms from previous releases do not carry over. The Arena preview may restrict external visitors.
+**Deploy the static files only. No Node service, Worker, database, build action or student login is required.** Upload this release to your Pages publishing folder; both devices must open the deployed HTTPS website, not a `github.com/.../blob/.../index.html` file. The public PeerJS service handles room discovery. GitHub Pages hosts files; it does not itself provide signaling or relay voice.
 
-## Try a call
+1. Close old tabs and reopen the published URL on both devices after deployment. Do not reuse an old code. Keep the creator's tab open, awake and in the foreground on mobile.
+2. Create a room and enter a practice name. Send the code or the invitation link. The first character identifies the scenario. No manual seat selection is needed.
+3. The partner uses **Join with a code**. Inbound = customer calls agent. Outbound = agent calls customer. The **joiner** answers the incoming ring. Both students allow microphone access.
 
-1. Create a room, choose Agent or Customer, and enter a practice name. Send the invitation or six-character code.
-2. The partner chooses the other role and enters a practice name. The invitation preselects the available seat. Customers can optionally enter a fictional city/branch, callback number, and reason for calling. Use only made-up details. No account is created.
-3. The **agent answers the ring**, regardless of who created the room. Both devices must allow the microphone. Profiles appear in the shared case workspace and remain in memory only.
+## If joining fails
 
-## What to check if it fails
+- **Room not found:** The public signaling service did not find an active creator at that code. Check the latest deployment, leave the host tab open and create a new code. The two browsers must use the same signaling service.
+- **Timed out:** The signaling service or connection path may be blocked. Try **Test network** on both devices. This tests the ability to obtain a TURN relay candidate; it does not prove end-to-end audio. A failed initial join can be retried without intentionally closing the waiting host's room.
+- **Connected but silent:** Check microphone permission, volume, mute, and Play partner audio. Chat and audio reuse the room's negotiated WebRTC connection, avoiding a second network traversal.
+- **Still stuck:** Send the public Pages URL, the exact error from the joiner, browser/device names, and whether the creator saw a join attempt. Never send relay credentials.
 
-- **Room not found:** Check that both devices are on this release, the code is correct, the creator's tab remains open, and PeerJS Cloud is reachable. A TURN relay cannot fix a typo or a blocked signaling service.
-- **Join times out on mobile data or school Wi-Fi:** On each device open Create room or Join room and click **Test network**. This checks whether the browser can allocate a relay candidate. It is not an end-to-end call test. Some networks allow direct calls even when this check fails.
-- **No relay reachable:** Configure a working TURN service, ideally with UDP plus TCP/TLS on port 443. The bundled PeerJS service is best effort; it is not a guaranteed classroom relay. The same ICE configuration is used for the initial room channel and voice connection.
-- **Connected but quiet:** Check microphone permissions, device volume, mute state and Play partner audio. Open the public site directly in the browser, not inside a restricted embed.
+## Restricted networks — still hosted only on GitHub Pages
 
-## Optional instructor setup: Cloudflare TURN with temporary credentials
+The bundled PeerJS configuration provides best-effort NAT traversal. If a network blocks direct WebRTC and the default relay is unreachable, an actual reachable TURN provider is needed. No static JavaScript change can guarantee audio through every firewall.
 
-The site remains plain HTML/CSS/JS on GitHub Pages. Only the short-lived credential issuer runs separately. No student accounts or database are required. **This package does not include a paid or provisioned relay.** Review provider pricing and establish spending limits before enabling a public service.
+Optional for the site owner: obtain a managed TURN provider’s **browser-safe, restricted, read-only ICE credentials URL** and set `browserIceServersUrl` in `js/network-config.js`. This is a GET endpoint that supports CORS from your site and returns an RTCIceServer array or `{iceServers:[...]}`. Include TURN/TLS on port 443 if supported. Example provider setup: https://www.metered.ca/tools/openrelay/ . This uses a managed networking service, not a second website deployment. Do not paste an admin token, private API key or permanent private TURN password into GitHub. Anyone can read the site files, so use provider restrictions, quotas and expiry.
 
-1. Create a TURN key in your Cloudflare Realtime account. Obtain the key ID and API token. See https://developers.cloudflare.com/realtime/turn/generate-credentials/ .
-2. In `instructor-turn/wrangler.toml`, set `SITE_ORIGIN` to your actual site origin, for example `https://your-school.github.io` (no repository path). The provided Worker limits requests per IP. Origin checking is not authentication; set provider usage alerts/limits and consider additional access controls if exposing it beyond a class.
-3. From the **instructor-turn** folder, run `npx wrangler login` and `npx wrangler deploy` after reviewing the config. Supply the key ID using `npx wrangler secret put TURN_KEY_ID` and the API token via `npx wrangler secret put TURN_TOKEN`. Enter secrets only at the prompts. Do not commit them or send them to students.
-4. In `js/network-config.js`, set `credentialEndpoint` to the Worker's actual HTTPS URL plus `/turn`. Keep `relayOnly: false` for normal use. Publish the changed file. If a service worker has an older offline copy, reconnect and reload.
-5. Run **Test network** on both devices. Then put one device on mobile data and the other on Wi-Fi, start a new room, and verify speech in both directions. Optionally set `relayOnly: true` temporarily for a relay-only acceptance test, then restore `false`.
-
-## Existing TURN provider
-
-Instead of the example Worker, configure an HTTPS endpoint accepting `POST` from your site's origin and returning `{ "iceServers": [...] }` with authorized, short-lived TURN credentials. Include valid TURN URLs supported by the provider, including TLS on port 443 if available. Responses must use `Cache-Control: no-store` and allow the Pages origin. The app never caches these responses. Never ship a master API token in a static website.
+Publish, reload, and run **Test network** on each device. To verify only the relayed route, set `relayOnly: true` temporarily, create a new room and check both directions. Restore `false` afterward. Leave all optional URLs empty for ordinary direct calls with the public defaults.
