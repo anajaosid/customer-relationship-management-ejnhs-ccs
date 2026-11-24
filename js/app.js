@@ -307,7 +307,7 @@ function overview() {
   return `<section class="hero"><div class="labmark">CCS <span>/</span> Customer service lab</div><h1>The practice floor</h1><p>Take the agent seat or call in as a customer. Choose a case below to start—no sign-in needed.</p><div class="heroactions">${button("Choose a scenario " + I("arrow-right"), "browse()", "orange")}<button class="herohelp" onclick="go('Agent handbook')">Call guide ${I("arrow-up-right")}</button></div></section><ol class="howstrip" aria-label="How practice works"><li><i>1</i><span>Pick a scenario</span></li><li><i>2</i><span>Share the room code</span></li><li><i>3</i><span>Answer the call</span></li></ol>${library(false)}`;
 }
 function library(full) {
-  return `<section id="scenario-shelf" aria-label="Scenario library"><div class="heading"><div><div class="row"><h2 id="scenario-title" tabindex="-1">Scenario library</h2></div><p>Create a room as the agent, or join one as the customer.</p></div><label class="filter">${I("list-filter")}<select aria-label="Filter scenarios by difficulty" onchange="filter=this.value;refreshCards()">${["All levels", "Beginner", "Intermediate", "Advanced"].map((l) => `<option ${filter === l ? "selected" : ""}>${l}</option>`).join("")}</select>${I("chevron-down")}</label></div>${full ? `<input class="search" aria-label="Search scenarios" placeholder="Search industry or topic…" value="${esc(search)}" oninput="search=this.value;refreshCards()">` : ""}<div class="grid" id="cards">${cards(full)}</div></section>`;
+  return `<section id="scenario-shelf" aria-label="Scenario library"><div class="heading"><div><div class="row"><h2 id="scenario-title" tabindex="-1">Scenario library</h2></div><p>Create or join a room, then choose your role.</p></div><label class="filter">${I("list-filter")}<select aria-label="Filter scenarios by difficulty" onchange="filter=this.value;refreshCards()">${["All levels", "Beginner", "Intermediate", "Advanced"].map((l) => `<option ${filter === l ? "selected" : ""}>${l}</option>`).join("")}</select>${I("chevron-down")}</label></div>${full ? `<input class="search" aria-label="Search scenarios" placeholder="Search industry or topic…" value="${esc(search)}" oninput="search=this.value;refreshCards()">` : ""}<div class="grid" id="cards">${cards(full)}</div></section>`;
 }
 function refreshCards() {
   $("#cards").innerHTML = cards(view === "Scenario library");
@@ -351,18 +351,12 @@ function briefing(id) {
   if (active) return resumePrompt();
   let d = D[id];
   show(
-    `${tile(d)}<div class="case-id">SCENARIO BRIEF / ${d.code}-0${id + 1}</div><h2>${d.name}</h2>${level(d)}<div class="brief"><b>${d.issue}</b><p>“${d.opening}”</p></div><div class="eyebrow gray">TWO-PERSON VOICE PRACTICE</div><p>Create a room to take the agent seat, or join your partner as the customer.</p><div class="actions" style="margin-top:14px">${button("Create room", `startLive(${id})`, "orange", "plus")}${button("Join room", `joinForm(${id})`, "", "radio")}</div></div><div class="dialog-footer">${button("Start solo practice", `beginSolo(${id})`, "", "play")}</div>`,
+    `${tile(d)}<div class="case-id">SCENARIO BRIEF / ${d.code}-0${id + 1}</div><h2>${d.name}</h2>${level(d)}<div class="brief"><b>${d.issue}</b><p>“${d.opening}”</p></div><div class="eyebrow gray">TWO-PERSON VOICE PRACTICE</div><p>Create or join a room, choose a role, and enter a practice name.</p><div class="actions" style="margin-top:14px">${button("Create room", `startLive(${id})`, "orange", "plus")}${button("Join room", `joinForm(${id})`, "", "radio")}</div></div><div class="dialog-footer">${button("Start solo practice", `beginSolo(${id})`, "", "play")}</div>`,
   );
 }
-function joinForm(id, code = "", error = "") {
-  if (active) return resumePrompt();
-  let d = D[id];
-  show(
-    `${d ? tile(d) : I("phone-call")}<div class="case-id">CUSTOMER SEAT</div><h2>${d ? "Join " + d.name.toLowerCase() : "Join with a code"}</h2><p>Enter the code from your agent. Allow microphone access so you can speak when they answer.</p><form onsubmit="event.preventDefault();joinLive(this.code.value.trim().toUpperCase(),${id})"><label class="field">Six-character room code<input class="codeinput" name="code" value="${esc(code)}" placeholder="A3F291" pattern="[a-fA-F0-9]{6}" maxlength="6" required autocapitalize="characters" spellcheck="false" autocomplete="off"></label>${error ? `<p role="alert" class="error">${esc(error)}</p>` : ""}<button class="btn orange">${I("phone-call")}Join room</button></form></div>`,
-  );
-  $(".codeinput").focus();
+function joinForm(id, code = "", error = "", preferred = "Customer") {
+  roomSetup("join", id, code, error, { role: preferred });
 }
-
 function resumePrompt() {
   show(
     `<div class="eyebrow gray">SESSION IN PROGRESS</div><h2>Return to your case</h2><p>Finish or leave your current session before starting another.</p></div><div class="dialog-footer">${button("Resume session", "closeModal();go('Active session')", "orange")}</div>`,
@@ -387,7 +381,7 @@ function roomPage() {
       "Live call room",
       "Practice together. One person takes the agent seat; the other plays the customer.",
     ) +
-    `<div class="livegrid"><section class="panel"><span class="tile" style="--tint:#fff0e4;--accent:#ad653c">${I("headset")}</span><div class="case-id">01 / AGENT SEAT</div><h3>Host a practice call</h3><p>Choose an industry, create your room, and share its code with your partner.</p><label class="field">Practice scenario<select id="roomscenario">${D.map((d) => `<option value="${d.id}">${d.name}</option>`).join("")}</select></label>${button("Create live room", "startLive(+$('#roomscenario').value)", "orange", "plus")}</section><section class="panel"><span class="tile" style="--tint:#e9f1fa;--accent:#5483ae">${I("users")}</span><div class="case-id">02 / CUSTOMER SEAT</div><h3>Join your partner</h3><p>Enter the agent’s six-character code and allow microphone access to place your practice call.</p><form onsubmit="event.preventDefault();joinLive(this.code.value.trim().toUpperCase())"><label class="field">Room code<input name="code" placeholder="e.g. A3F291" pattern="[A-Fa-f0-9]{6}" maxlength="6" required autocapitalize="characters" autocomplete="off"></label><button class="btn dark">${I("radio")}Join room</button></form></section></div><div class="privacy">${I("shield-check")}No account or database required. Audio is live and is never recorded by EJNHS CCS CRM.</div>`
+    `<div class="livegrid"><section class="panel"><span class="tile" style="--tint:#fff0e4;--accent:#ad653c">${I("headset")}</span><div class="case-id">01 / CREATE</div><h3>Host a practice call</h3><p>Choose an industry, create your room, and share its code with your partner.</p><label class="field">Practice scenario<select id="roomscenario">${D.map((d) => `<option value="${d.id}">${d.name}</option>`).join("")}</select></label>${button("Create live room", "startLive(+$('#roomscenario').value)", "orange", "plus")}</section><section class="panel"><span class="tile" style="--tint:#e9f1fa;--accent:#5483ae">${I("users")}</span><div class="case-id">02 / JOIN</div><h3>Join your partner</h3><p>Enter the creator’s six-character code, then choose the available role.</p><form onsubmit="event.preventDefault();joinLive(this.code.value.trim().toUpperCase())"><label class="field">Room code<input name="code" placeholder="e.g. A3F291" pattern="[A-Fa-f0-9]{6}" maxlength="6" required autocapitalize="characters" autocomplete="off"></label><button class="btn dark">${I("radio")}Join room</button></form></section></div><div class="privacy">${I("shield-check")}No account or database required. Audio is live and is never recorded by EJNHS CCS CRM.</div>`
   );
 }
 function historyPage() {
@@ -433,12 +427,12 @@ function guide() {
     [
       "05",
       "Set up live voice",
-      "Both students must open the same deployed site. Choose the same industry. The agent creates a room and shares its code; the customer chooses Join room and enters it. The agent answers the incoming call. Allow microphone access on both devices. Use headphones and allow microphone access over HTTPS. If a school network blocks peer-to-peer connections, try another network or ask your instructor to configure TURN.",
+      "Both students must open the same deployed site. Choose the same industry. Either participant creates the room. Choose different roles and share the code or invitation. The agent answers the incoming call. Allow microphone access on both devices. Use headphones and allow microphone access over HTTPS. If a school network blocks peer-to-peer connections, try another network or ask your instructor to configure TURN.",
     ],
     [
       "06",
       "Understand your data",
-      "Solo customers use scripted replies, not a real customer line. Rooms are temporary. On the static site, PeerJS Cloud helps devices find each other. EJNHS CCS CRM does not record messages or audio. Completed cases stay on this device. No name, email, or password is collected.",
+      "Solo customers use scripted replies, not a real customer line. Rooms are temporary. On the static site, PeerJS Cloud helps devices find each other. EJNHS CCS CRM does not record messages or audio. Completed cases stay on this device. Practice names and fictional customer details are shared with the other participant for this session.",
     ],
   ];
   return (
@@ -506,7 +500,7 @@ function consolePage() {
       d.name,
       `${a.role} seat · ${isLive ? "Live partner role-play" : "Solo practice with a scripted customer"}`,
     ) +
-    `<div class="statusbar"><div class="row">${I("headset")}<b>${isLive ? esc(live?.status || "Connecting…") : "Practice in progress"}</b></div><div class="row">${isLive && live?.code ? button('<span class="roomcode">' + live.code + "</span>", "copyCode()", "", "copy") : ""}<span id="elapsed" class="mono">0:00</span></div></div>${isLive ? callControls() : ""}${mobilePanes(a)}<div class="consolegrid" data-pane="${a.pane || "call"}"><div class="record-column"><section class="panel"><div class="eyebrow gray">${guest ? "YOUR FICTIONAL IDENTITY" : "CUSTOMER RECORD"}</div><div class="row" style="gap:12px;margin:14px 0">${tile(d)}<div><h3>${d.person}</h3><small class="muted">Training account</small></div></div><dl class="details"><dt>Reference</dt><dd>RD-40${a.id + 12}</dd><dt>Service</dt><dd>${d.plan}</dd><dt>Verification</dt><dd>${a.verified ? "Verified" : "Not verified"}</dd></dl>${!guest && !a.verified ? button("Verify account", "verifyForm()", "", "shield-check") : ""}</section><section class="panel"><div class="eyebrow gray">CASE CONTEXT</div><h3>${d.issue}</h3><p>${a.done ? coaching[a.id][6] : d.record}</p><div class="guide-card"><b>${guest ? "Customer cue" : "Service policy"}</b><p>${guest ? d.reply : d.policy}</p></div>${!guest ? (a.done ? `<span class="tag">${I("check")} ${d.result}</span>` : button(d.action, "caseAction()", "", "clipboard-list")) : ""}</section><section class="panel"><div class="eyebrow gray">ACCOUNT TIMELINE</div><h3>Contact history</h3><div class="timeline"><div><small>CURRENT INTERACTION</small><p>${a.done ? d.result : d.issue}</p></div><div><small>PREVIOUS UPDATE</small><p>${coaching[a.id][4]}</p></div><div><small>ACCOUNT HISTORY</small><p>${coaching[a.id][5]}</p></div></div></section></div><div class="work-column"><section class="panel conversation-panel"><div class="eyebrow gray">${isLive ? "PEER-TO-PEER" : "GUIDED PRACTICE"}</div><h3>${isLive ? "Room conversation" : "Call conversation"}</h3>${guest ? `<div class="brief"><b>Start with this request</b><p>“${d.opening}”</p></div>` : ""}<div class="chatbox" id="chatbox">${chatMarkup()}</div>${isLive ? `<form class="chatinput" onsubmit="event.preventDefault();sendChat(this.msg)"><input class="search" style="max-width:none;margin:0" name="msg" aria-label="Message your partner" required maxlength="1000" placeholder="Message your partner…"><button class="btn" aria-label="Send message">${I("send")}</button></form>` : soloControls()}</section>${!guest ? `<section class="panel wrap-panel"><div class="eyebrow gray">AFTER-CALL WORK</div><h3>Case notes & wrap-up</h3><label class="field">Agent notes<textarea maxlength="3000" placeholder="Summarize the issue, action taken, and next steps…" oninput="active.notes=this.value">${esc(a.notes)}</textarea></label><div class="actions">${button("Wrap up session", "wrap()", "orange", "circle-check")}${!isLive ? button("Discard", "leavePrompt()") : ""}</div></section>` : ""}</div></div>`
+    `<div class="statusbar"><div class="row">${I("headset")}<b>${isLive ? esc(live?.status || "Connecting…") : "Practice in progress"}</b></div><div class="row">${isLive && live?.code ? button('<span class="roomcode">' + live.code + "</span>", "copyCode()", "", "copy") : ""}<span id="elapsed" class="mono">0:00</span></div></div>${isLive ? callControls() + `<div class="participant-strip">Agent: <b>${esc(participant("Agent")?.name)}</b> &nbsp;·&nbsp; Customer: <b>${esc(participant("Customer")?.name)}</b></div>` : ""}${mobilePanes(a)}<div class="consolegrid" data-pane="${a.pane || "call"}"><div class="record-column"><section class="panel"><div class="eyebrow gray">${guest ? "YOUR FICTIONAL IDENTITY" : "CUSTOMER RECORD"}</div><div class="row" style="gap:12px;margin:14px 0">${tile(d)}<div><h3>${esc(participant("Customer")?.name || d.person)}</h3><small class="muted">Training account</small></div></div><dl class="details"><dt>Reference</dt><dd>RD-40${a.id + 12}</dd>${participant("Customer")?.city ? `<dt>City / branch</dt><dd>${esc(participant("Customer").city)}</dd>` : ""}${participant("Customer")?.callback ? `<dt>Callback</dt><dd>${esc(participant("Customer").callback)}</dd>` : ""}<dt>Service</dt><dd>${d.plan}</dd><dt>Verification</dt><dd>${a.verified ? "Verified" : "Not verified"}</dd></dl>${!guest && !a.verified ? button("Verify account", "verifyForm()", "", "shield-check") : ""}</section><section class="panel"><div class="eyebrow gray">CASE CONTEXT</div><h3>${d.issue}</h3>${participant("Customer")?.concern ? `<p><b>Customer request:</b> ${esc(participant("Customer").concern)}</p>` : ""}<p>${a.done ? coaching[a.id][6] : d.record}</p><div class="guide-card"><b>${guest ? "Customer cue" : "Service policy"}</b><p>${guest ? d.reply : d.policy}</p></div>${!guest ? (a.done ? `<span class="tag">${I("check")} ${d.result}</span>` : button(d.action, "caseAction()", "", "clipboard-list")) : ""}</section><section class="panel"><div class="eyebrow gray">ACCOUNT TIMELINE</div><h3>Contact history</h3><div class="timeline"><div><small>CURRENT INTERACTION</small><p>${a.done ? d.result : d.issue}</p></div><div><small>PREVIOUS UPDATE</small><p>${coaching[a.id][4]}</p></div><div><small>ACCOUNT HISTORY</small><p>${coaching[a.id][5]}</p></div></div></section></div><div class="work-column"><section class="panel conversation-panel"><div class="eyebrow gray">${isLive ? "PEER-TO-PEER" : "GUIDED PRACTICE"}</div><h3>${isLive ? "Room conversation" : "Call conversation"}</h3>${guest ? `<div class="brief"><b>Start with this request</b><p>“${esc(participant("Customer")?.concern || d.opening)}”</p></div>` : ""}<div class="chatbox" id="chatbox">${chatMarkup()}</div>${isLive ? `<form class="chatinput" onsubmit="event.preventDefault();sendChat(this.msg)"><input class="search" style="max-width:none;margin:0" name="msg" value="${esc(a.chatDraft || "")}" oninput="active.chatDraft=this.value" aria-label="Message your partner" required maxlength="1000" placeholder="Message your partner…"><button class="btn" aria-label="Send message">${I("send")}</button></form>` : soloControls()}</section>${!guest ? `<section class="panel wrap-panel"><div class="eyebrow gray">AFTER-CALL WORK</div><h3>Case notes & wrap-up</h3><label class="field">Agent notes<textarea maxlength="3000" placeholder="Summarize the issue, action taken, and next steps…" oninput="active.notes=this.value">${esc(a.notes)}</textarea></label><div class="actions">${button("Wrap up session", "wrap()", "orange", "circle-check")}${!isLive ? button("Discard", "leavePrompt()") : ""}</div></section>` : ""}</div></div>`
   );
 }
 function chatMarkup() {
@@ -514,7 +508,7 @@ function chatMarkup() {
     active.logs
       .map(
         (m) =>
-          `<div class="message ${m.from === active.role ? "mine" : ""}"><small>${esc(m.from)}</small>${esc(m.text)}</div>`,
+          `<div class="message ${m.from === active.role ? "mine" : ""}"><small>${esc(m.from)}${participant(m.from) ? " · " + esc(participant(m.from).name) : ""}</small>${esc(m.text)}</div>`,
       )
       .join("") ||
     "<p>Share the room code with your partner. Messages appear here once connected.</p>"
@@ -670,7 +664,11 @@ render();
 
 function inviteURL() {
   const url = new URL("./", document.baseURI);
-  url.hash = new URLSearchParams({ room: live.code, desk: D[active.id].code });
+  url.hash = new URLSearchParams({
+    room: live.code,
+    desk: D[active.id].code,
+    seat: otherSeat(active.role),
+  });
   return url.href;
 }
 async function shareInvite() {
@@ -687,7 +685,7 @@ async function shareInvite() {
     toast("Invite copied. Send it to your classmate.");
   } catch {
     show(
-      `<h2>Room invitation</h2><p>Copy this link and send it to the customer. Keep your room open until they join.</p><label class="field">Invitation link<input id="shareurl" readonly value="${esc(url)}"></label></div>`,
+      `<h2>Room invitation</h2><p>Copy this link and send it to your partner. Keep your room open until they join.</p><label class="field">Invitation link<input id="shareurl" readonly value="${esc(url)}"></label></div>`,
     );
     $("#shareurl").select();
   }
@@ -697,7 +695,12 @@ function openInvite() {
     code = (args.get("room") || "").toUpperCase(),
     desk = D.find((d) => d.code === args.get("desk"));
   if (!active && /^[A-F0-9]{6}$/.test(code)) {
-    joinForm(desk?.id ?? null, code);
+    joinForm(
+      desk?.id ?? null,
+      code,
+      "",
+      args.get("seat") === "Agent" ? "Agent" : "Customer",
+    );
   }
 }
 openInvite();
@@ -735,15 +738,15 @@ function lobby() {
   let l = live,
     a = active,
     d = D[a.id],
-    host = a.role === "Agent",
+    host = l.phase === "waiting",
     incoming = l.phase === "incoming";
   return (
     head(
       "LIVE ROOM / " + d.code,
       d.name,
-      `${a.role} seat · Two-person voice practice`,
+      `${esc(a.me.name)} · ${a.role} seat`,
     ) +
-    `<section class="lobby"><div class="lobbyhead"><span>${I("radio")} PRACTICE LINE</span><span><i class="dot"></i> ${incoming ? "Inbound call" : host ? "Room open" : "Calling"}</span></div><div class="lobbybody"><span class="call-round ${incoming ? "ringing" : ""}">${I(incoming ? "phone-call" : host ? "headset" : "phone-call")}</span><div class="case-id">${host ? "AGENT STATION" : "CUSTOMER STATION"}</div><h2>${incoming ? "Incoming customer call" : host ? "Your room is ready" : "Calling your agent…"}</h2><p>${incoming ? `${d.person} is on the line. Answer to begin the ${d.name.toLowerCase()} case.` : host ? "Keep this tab open. Send your classmate the invitation link, or give them the code to enter on this site." : "Your agent has been notified. You’ll be connected when they answer."}</p>${host && !incoming ? `<div class="invitecode"><small>ROOM CODE</small><strong class="roomcode">${l.code}</strong><div class="actions callcenter">${button("Copy invite link", "shareInvite()", "dark", "arrow-up-right")}${button("Copy code", "copyCode()", "", "copy")}</div></div>` : ""}${incoming ? `<div class="actions callcenter">${button("Answer call", "answerIncoming()", "answer", "phone-call")}${button("Decline", "cancelRoom()", "end-call", "phone-off")}${button(callRinger.source && callRinger.context?.state === "running" ? "Silence ringer" : "Enable ringer", "toggleCallRinger()", "", "volume-2")}</div>` : `<div class="actions callcenter">${button(l.micOn ? "Mute microphone" : "Enable microphone", "toggleMic()", "", l.micOn ? "mic" : "mic-off")}${button(host ? "Close room" : "Cancel call", "cancelRoom()", "", "phone-off")}</div>`}<small class="callhint">${I("headphones")} ${incoming ? "Answering requests microphone access." : "Use headphones for clearer two-way audio."}</small></div></section>`
+    `<section class="lobby"><div class="lobbyhead"><span>${I("radio")} PRACTICE LINE</span><span><i class="dot"></i> ${incoming ? "Inbound call" : host ? "Room open" : "Calling"}</span></div><div class="lobbybody"><span class="call-round ${incoming ? "ringing" : ""}">${I(incoming ? "phone-call" : host ? "headset" : "phone-call")}</span><div class="case-id">${a.role.toUpperCase()} STATION</div><h2>${incoming ? "Incoming customer call" : host ? "Your room is ready" : "Calling your agent…"}</h2><p>${incoming ? `${esc(participant("Customer")?.name || d.person)} is on the line. Answer to begin the ${d.name.toLowerCase()} case.` : host ? `Invite your partner to join as the ${otherSeat(a.role).toLowerCase()}. Keep this tab open.` : "Your agent has been notified. You’ll be connected when they answer."}</p>${host && !incoming ? `<div class="invitecode"><small>ROOM CODE</small><strong class="roomcode">${l.code}</strong><div class="actions callcenter">${button("Copy invite link", "shareInvite()", "dark", "arrow-up-right")}${button("Copy code", "copyCode()", "", "copy")}</div></div>` : ""}${incoming ? `<div class="actions callcenter">${button("Answer call", "answerIncoming()", "answer", "phone-call")}${button("Decline", "cancelRoom()", "end-call", "phone-off")}${button(callRinger.source && callRinger.context?.state === "running" ? "Silence ringer" : "Enable ringer", "toggleCallRinger()", "", "volume-2")}</div>` : `<div class="actions callcenter">${button(l.micOn ? "Mute microphone" : "Enable microphone", "toggleMic()", "", l.micOn ? "mic" : "mic-off")}${button(host ? "Close room" : "Cancel call", "cancelRoom()", "", "phone-off")}</div>`}<small class="callhint">${I("headphones")} ${incoming ? "Answering requests microphone access." : "Use headphones for clearer two-way audio."}</small></div></section>`
   );
 }
 

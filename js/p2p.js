@@ -20,10 +20,13 @@ class P2PRoom {
   }
   send(raw) {
     const m = JSON.parse(raw);
-    if (m.t === "create" || m.t === "join") this.register(m);
+    if (m.t === "create" || m.t === "join")
+      this.register(m).catch((e) =>
+        this.emit({ t: "error", message: e.message }),
+      );
     else if (this.link?.open) this.link.send(m);
   }
-  register(m) {
+  async register(m) {
     const host = m.t === "create",
       token = crypto.getRandomValues(new Uint8Array(3));
     const code = host
@@ -31,15 +34,17 @@ class P2PRoom {
           .join("")
           .toUpperCase()
       : m.code;
-    const home = new URL("./", document.baseURI).href;
-    let namespace = 2166136261;
-    for (const c of home)
-      namespace = Math.imul(namespace ^ c.charCodeAt(0), 16777619);
-    const prefix = `relaydesk-${(namespace >>> 0).toString(36)}-`;
+    const prefix = "ejnhs-ccs-v4-";
     this.ishost = host;
+    this.me = m.profile;
+    this.scenario = m.scenario;
+    this.code = code;
+    this.rtcConfig = await roomIceConfig();
+    if (this.closed) return;
     const peer = new Peer(prefix + (host ? code : crypto.randomUUID()), {
       debug: 0,
       ...(window.RELAY_PEER_OPTIONS || {}),
+      config: this.rtcConfig,
     });
     this.broker = peer;
     this.iceServers = peer.options.config?.iceServers;
@@ -50,10 +55,11 @@ class P2PRoom {
         const call = peer.connect(prefix + code, {
           reliable: true,
           serialization: "json",
-          metadata: { version: 1, scenario: m.scenario },
+          metadata: { version: 4, scenario: m.scenario, role: m.profile.role },
         });
         this.listen(call, false);
         this.link = call;
+        call.on("open", () => call.send({ t: "intro", profile: this.me }));
       }
     });
     peer.on("connection", (call) => {
@@ -64,11 +70,13 @@ class P2PRoom {
       const meta = call.metadata || {};
       const reason = this.link
         ? "This room already has two participants."
-        : meta.version !== 1
+        : meta.version !== 4
           ? "Unsupported practice client."
-          : meta.scenario != null && meta.scenario !== m.scenario
-            ? "This code belongs to a different scenario. Check the industry with your agent."
-            : "";
+          : meta.role !== otherSeat(this.me.role)
+            ? `The creator is the ${this.me.role.toLowerCase()}. Choose ${otherSeat(this.me.role)} to join this room.`
+            : meta.scenario != null && meta.scenario !== m.scenario
+              ? "This code belongs to a different scenario. Check the industry with your agent."
+              : "";
       if (reason) {
         call.on("open", () => {
           call.send({ t: "error", message: reason });
@@ -78,16 +86,21 @@ class P2PRoom {
       }
       this.link = call;
       this.listen(call, true);
-      call.on("open", () => {
-        call.send({ t: "joined", code, scenario: m.scenario });
-        this.emit({ t: "peer" });
-      });
+      const pending = setTimeout(() => {
+        if (this.link === call && !this.introduced) {
+          this.link = null;
+          call.close();
+        }
+      }, 18000);
+      call.on("close", () => clearTimeout(pending));
     });
     peer.on("error", (err) => {
       if (this.closed || this.broker !== peer) return;
       if (err.type === "unavailable-id" && host && this.retries++ < 3) {
         peer.destroy();
-        this.register(m);
+        this.register(m).catch((e) =>
+          this.emit({ t: "error", message: e.message }),
+        );
         return;
       }
       if (this.link?.open) return;
@@ -104,16 +117,48 @@ class P2PRoom {
     link.on("data", (m) => {
       if (this.closed || this.link !== link || !m || typeof m !== "object")
         return;
-      const allowed = host
-        ? ["answer", "ice", "left"]
-        : ["joined", "error", "offer", "ice", "left"];
-      if (!allowed.includes(m.t)) return;
+      if (host && m.t === "intro" && !this.introduced) {
+        const profile = cleanProfile(m.profile);
+        if (!profile || profile.role !== otherSeat(this.me.role)) {
+          this.link = null;
+          link.close();
+          return;
+        }
+        this.introduced = true;
+        link.send({
+          t: "joined",
+          code: this.code,
+          scenario: this.scenario,
+          profile: this.me,
+        });
+        this.emit({ t: "peer", profile });
+        return;
+      }
+      if (!host && m.t === "joined" && !this.introduced) {
+        const profile = cleanProfile(m.profile);
+        if (
+          !profile ||
+          profile.role !== otherSeat(this.me.role) ||
+          !Number.isInteger(m.scenario) ||
+          !D[m.scenario] ||
+          m.code !== this.code
+        )
+          return;
+        this.introduced = true;
+        this.emit({ ...m, profile });
+        return;
+      }
+      if (!host && !this.introduced && m.t === "error") {
+        this.emit({ t: "error", message: String(m.message).slice(0, 240) });
+        return;
+      }
       if (
-        m.t === "joined" &&
-        (!Number.isInteger(m.scenario) ||
-          m.scenario < 0 ||
-          m.scenario > 5 ||
-          !/^[A-F0-9]{6}$/.test(m.code))
+        !this.introduced ||
+        ![
+          "ice",
+          "left",
+          this.me.role === "Agent" ? "answer" : "offer",
+        ].includes(m.t)
       )
         return;
       if (m.t === "left") this.depart();
@@ -147,13 +192,13 @@ class P2PRoom {
 let connecting = false;
 function startLive(id) {
   if (active) return resumePrompt();
-  connectRoom("create", id, "");
+  roomSetup("create", id);
 }
 function joinLive(code, id = null) {
   if (active) return resumePrompt();
-  connectRoom("join", id, code);
+  roomSetup("join", id, code);
 }
-function connectRoom(t, id, code) {
+function connectRoom(t, id, code, profile) {
   if (connecting) return;
   closeModal();
   if (!navigator.onLine)
@@ -162,7 +207,7 @@ function connectRoom(t, id, code) {
     return toast(
       "This browser does not support WebRTC. Try a current browser.",
     );
-  if (t === "create") callRinger.arm();
+  if (profile.role === "Agent") callRinger.arm();
   connecting = true;
   toast(
     t === "create" ? "Opening your practice room…" : "Finding your partner…",
@@ -176,6 +221,8 @@ function connectRoom(t, id, code) {
   }
   let l = {
     ws,
+    isCreator: t === "create",
+    me: profile,
     code: "",
     status: "Connecting",
     pc: null,
@@ -190,10 +237,16 @@ function connectRoom(t, id, code) {
   const timeout = setTimeout(() => {
     if (connecting && live === l) {
       disconnect();
-      toast("Room service timed out. Please try again.");
+      roomSetup(
+        t,
+        id,
+        code,
+        "Could not reach your partner. Check the room code and run Test network on both devices. A blocked network may require a school TURN relay.",
+        profile,
+      );
     }
   }, 30000);
-  ws.onopen = () => ws.send(JSON.stringify({ t, scenario: id, code }));
+  ws.onopen = () => ws.send(JSON.stringify({ t, scenario: id, code, profile }));
   let chain = Promise.resolve();
   ws.onmessage = (e) => {
     chain = chain
@@ -206,24 +259,23 @@ function connectRoom(t, id, code) {
             return;
           }
           disconnect();
-          if (t === "join") joinForm(id, code, m.message);
-          else toast(m.message);
+          roomSetup(t, id, code, m.message, profile);
           return;
         }
         if (m.t === "created" || m.t === "joined") {
           clearTimeout(timeout);
           connecting = false;
           l.code = m.code;
-          active = makeSession(
-            m.scenario ?? id,
-            "live",
-            m.t === "created" ? "Agent" : "Customer",
-          );
-          l.phase = m.t === "created" ? "waiting" : "ringing";
-          l.status =
-            m.t === "created" ? "Waiting for customer" : "Calling the agent";
-          go("Active session");
-          if (m.t === "joined") toggleMic();
+          active = makeSession(m.scenario ?? id, "live", profile.role);
+          active.me = profile;
+          active.partner = m.profile || null;
+          if (m.t === "created") {
+            l.phase = "waiting";
+            l.status = "Waiting for partner";
+            go("Active session");
+          } else {
+            readyPair(l);
+          }
           return;
         }
         if (m.t === "left") {
@@ -246,16 +298,21 @@ function connectRoom(t, id, code) {
           return;
         }
         if (m.t === "peer") {
-          closeModal();
-          l.phase = "incoming";
-          l.status = "Incoming customer call";
-          callRinger.start();
-          go("Active session");
+          active.partner = m.profile;
+          readyPair(l);
         } else if (m.t === "offer") {
           l.phase = "connecting";
           setLiveStatus("Connecting voice call");
           let pc = await peer(l);
           await pc.setRemoteDescription(m.sdp);
+          // Use the transceiver from the agent's offer, not an unnegotiated second sender.
+          l.trans = pc
+            .getTransceivers()
+            .find((t) => t.receiver.track.kind === "audio");
+          if (!l.trans) throw Error("No incoming audio channel");
+          l.trans.direction = "sendrecv";
+          if (l.stream)
+            await l.trans.sender.replaceTrack(l.stream.getAudioTracks()[0]);
           await flushIce(l);
           await pc.setLocalDescription(await pc.createAnswer());
           signal(l, { t: "answer", sdp: pc.localDescription });
@@ -293,6 +350,15 @@ function connectRoom(t, id, code) {
       toast("Could not connect to the room service.");
     }
   };
+}
+function readyPair(l) {
+  closeModal();
+  const agent = active.role === "Agent";
+  l.phase = agent ? "incoming" : "ringing";
+  l.status = agent ? "Incoming customer call" : "Calling the agent";
+  if (agent) callRinger.start();
+  go("Active session");
+  if (!agent && !l.stream) toggleMic();
 }
 function reportMic(l) {
   if (l.ch?.readyState === "open")
@@ -360,10 +426,13 @@ async function peer(l) {
   let iceServers = [{ urls: "stun:stun.l.google.com:19302" }];
   iceServers = l.ws.iceServers || iceServers;
   if (live !== l) throw Error("Room closed");
-  let pc = new RTCPeerConnection({ iceServers });
+  let pc = new RTCPeerConnection({ ...l.ws.rtcConfig, iceServers });
   l.pc = pc;
-  l.trans = pc.addTransceiver("audio", { direction: "sendrecv" });
-  if (l.stream) await l.trans.sender.replaceTrack(l.stream.getAudioTracks()[0]);
+  if (active.role === "Agent") {
+    l.trans = pc.addTransceiver("audio", { direction: "sendrecv" });
+    if (l.stream)
+      await l.trans.sender.replaceTrack(l.stream.getAudioTracks()[0]);
+  }
   pc.onicecandidate = (e) => {
     if (e.candidate) signal(l, { t: "ice", candidate: e.candidate });
   };
@@ -380,7 +449,7 @@ async function peer(l) {
     if (pc.connectionState === "connected")
       setLiveStatus("Voice connection ready");
     else if (pc.connectionState === "failed")
-      setLiveStatus("Connection blocked — see handbook");
+      setLiveStatus("Voice blocked — test the TURN relay on both networks");
     else if (pc.connectionState === "disconnected")
       setLiveStatus("Partner connection interrupted");
   };
@@ -508,6 +577,7 @@ function sendChat(el) {
     return toast("Wait for your partner to connect first.");
   live.ch.send(JSON.stringify({ t: "message", text: msg }));
   active.logs.push({ from: active.role, text: msg });
+  active.chatDraft = "";
   el.value = "";
   refreshChat();
 }

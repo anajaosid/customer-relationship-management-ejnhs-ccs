@@ -29,9 +29,9 @@ The CSS and JavaScript are readable source files, not build artifacts. After edi
 
 ## Practice
 
-Choose **Create room** on a scenario to take the agent seat. Keep that tab open. Send an invite link or six-character code to one partner. The customer joins on the same published site, the agent selects **Answer call**, and both allow microphone access. Either participant can end the call. The agent can save the outcome and notes afterward.
+Choose **Create room**, pick Agent or Customer, and enter a practice name. Share the invitation or code. Your partner chooses the other role and enters their practice name. The customer may supply fictional contact details and a reason for calling. The agent answers the incoming call even when they joined rather than created the room. Both devices allow microphone access. Either participant can end the call. The agent can save the outcome and notes afterward.
 
-On small screens, switch among **Call**, **Record**, and **Wrap-up**. Students without a partner can choose **Practice solo**. No personal information or sign-in is requested. Accounts shown inside CRM cases are fictional customer records.
+On small screens, switch among **Call**, **Record**, and **Wrap-up**. Students without a partner can choose **Practice solo**. No sign-in is required. Use fictional information for training profiles. Accounts shown inside CRM cases are fictional customer records.
 
 ## Local testing
 
@@ -42,3 +42,7 @@ Use your editor's static **Live Server** feature, or any ordinary local HTTP ser
 The app runs entirely in the browser. Live rooms still need an internet connection to the external **PeerJS Cloud** signaling service so devices can find each other. Audio and messages travel over WebRTC and are not recorded by EJNHS CCS CRM. The broker sees connection metadata. A restrictive network can block signaling or require a TURN relay. If you run your own PeerServer, set `window.RELAY_PEER_OPTIONS` before `js/p2p.js` loads. Do not embed private, permanent TURN credentials in a public repository.
 
 Offline practice requires the app to have finished caching during an earlier online visit. A service worker does not enable offline calls. Completed case notes remain in localStorage on this browser. **History → Clear saved history** removes those notes, without touching another site's data. Active rooms and unsaved cases end when the tab closes.
+
+## Different Wi-Fi or mobile data
+
+Click **Test network** in room setup to check TURN reachability. See [NETWORK-SETUP.md](NETWORK-SETUP.md) for the instructor relay setup, troubleshooting, and a two-device acceptance test.
