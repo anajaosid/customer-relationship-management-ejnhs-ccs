@@ -29,9 +29,9 @@ class P2PRoom {
   async register(m) {
     const host = m.t === "create",
       code = host ? makeRoomCode(m.scenario) : normalizeCode(m.code);
-    const prefix = "ejnhs-ccs-v6-";
+    const prefix = "ejnhs-ccs-v7-";
     this.ishost = host;
-    this.me = m.profile;
+    this.me = m.profile; this.voiceMethod=practicePrefs.voice;
     this.scenario = m.scenario;
     this.code = code;
     this.rtcConfig = await roomIceConfig();
@@ -41,7 +41,7 @@ class P2PRoom {
       ...(window.RELAY_PEER_OPTIONS || {}),
       config: this.rtcConfig,
     });
-    this.broker = peer;
+    this.broker = peer;peer.on("call",c=>receiveClassic(this,c));
     this.iceServers = peer.options.config?.iceServers;
     peer.on("open", () => {
       if (this.closed) return;
@@ -51,7 +51,7 @@ class P2PRoom {
         const call = peer.connect(prefix + code, {
           reliable: true,
           serialization: "json",
-          metadata: { version: 6, scenario: m.scenario, role: m.profile.role },
+          metadata: { version: 7, scenario: m.scenario, role: m.profile.role },
         });
         this.listen(call, false);
         this.link = call;
@@ -72,7 +72,7 @@ class P2PRoom {
       const meta = call.metadata || {};
       const reason = this.link
         ? "This room already has two participants."
-        : meta.version !== 6
+        : meta.version !== 7
           ? "Unsupported practice client."
           : meta.role !== otherSeat(this.me.role)
             ? `The creator is the ${this.me.role.toLowerCase()}. Refresh both browsers and use a new room code.`
@@ -138,7 +138,7 @@ class P2PRoom {
           t: "joined",
           code: this.code,
           scenario: this.scenario,
-          profile: this.me,
+          profile: this.me,voiceMethod:this.voiceMethod,
         });
         this.emit({ t: "peer", profile });
         return;
@@ -163,7 +163,7 @@ class P2PRoom {
       }
       if (
         !this.introduced ||
-        !["ice", "room-app", "left", this.ishost ? "offer" : "answer"].includes(
+        !["ice", "voice-fallback", "room-app", "left", this.ishost ? "offer" : "answer"].includes(
           m.t,
         )
       )
@@ -293,6 +293,7 @@ function connectRoom(t, id, code, profile) {
           connecting = false;
           l.code = m.code;
           active = makeSession(m.scenario ?? id, "live", profile.role);
+          l.voiceMethod=m.t==='created'?ws.voiceMethod:(m.voiceMethod==='shared'?'shared':'classic');
           active.me = profile;
           active.partner = m.profile || null;
           if (m.t === "created") {
@@ -319,7 +320,7 @@ function connectRoom(t, id, code, profile) {
             return;
           }
           l.endedAt = Date.now();
-          l.phase = "ended";
+          l.phase = "ended";disposeClassic(l);
           l.status = "Call ended · partner left";
           l.code = "";
           l.pc?.close();
@@ -329,6 +330,7 @@ function connectRoom(t, id, code, profile) {
           render();
           return;
         }
+        if(m.t==='voice-fallback'){if(['connecting','connected','ringing'].includes(l.phase))fallbackVoice(l);return}
         if (m.t === "room-app") {
           if (
             l.ch?.readyState === "open" &&
@@ -413,7 +415,12 @@ async function answerIncoming() {
   callRinger.release();
   l.phase = "connecting";
   setLiveStatus("Connecting voice call");
-  if (!l.stream) toggleMic();
+  if (!l.stream) await Promise.race([toggleMic(),new Promise(r=>setTimeout(r,1800))]);
+  if(!usableRoom(l))return;
+  if(l.voiceMethod==='classic'){if(startClassic(l))return;fallbackVoice(l);return}
+  await startSharedVoice(l);
+}
+async function startSharedVoice(l){
   try {
     let pc = await peer(l);
     if (live !== l || !l.code) return;
@@ -438,7 +445,7 @@ function endCall() {
   l.ws.close();
   l.code = "";
   l.endedAt = Date.now();
-  l.phase = "ended";
+  l.phase = "ended";disposeClassic(l);
   l.ch?.close();
   l.pc?.close();
   l.stream?.getTracks().forEach((t) => t.stop());
@@ -503,7 +510,7 @@ async function flushIce(l) {
   l.candidates = [];
 }
 function openRoomAudio(l) {
-  if (live !== l || l.ch) return;
+  if(live!==l)return; if(l.ch){l.phase="connected";setLiveStatus("Live call connected");noteVoiceRoute(l);return}
   const channel = {
     readyState: "open",
     send: (body) => signal(l, { t: "room-app", body }),
@@ -519,7 +526,7 @@ function attachChannel(l, ch) {
   ch.onopen = () => {
     if (live === l) {
       l.phase = "connected";
-      l.callStart = Date.now();
+      l.callStart ||= Date.now();noteVoiceRoute(l);
       reportMic(l);
       setLiveStatus("Live call connected");
     }
@@ -641,7 +648,7 @@ function disconnect() {
   let l = live;
   live = null;
   connecting = false;
-  if (!l) return;
+  if (!l) return;disposeClassic(l);
   l.stream?.getTracks().forEach((t) => t.stop());
   l.ch?.close();
   l.pc?.close();

@@ -232,6 +232,8 @@ const coaching = [
     "Data alerts active · Existing plan retained",
   ],
 ];
+expandScenarioLibrary(D,coaching);
+practicePrefs=readDeskPrefs();
 let historyList = load("relay-history", []),
   view = "Overview",
   filter = "All levels",
@@ -258,6 +260,7 @@ function drawer(v) {
   $(".mobilemenu").setAttribute("aria-expanded", v);
 }
 const navLabels = {
+  Settings:"Settings",
   Overview: "Practice floor",
   "Scenario library": "Scenario library",
   "Live call room": "Live rooms",
@@ -271,6 +274,7 @@ function render() {
     "Live call room",
     "Session history",
     "Agent handbook",
+    "Settings",
     ...(active ? ["Active session"] : []),
   ];
   $("#shell").innerHTML =
@@ -286,7 +290,7 @@ function render() {
             ? historyPage()
             : view === "Agent handbook"
               ? guide()
-              : consolePage();
+              : view === "Settings" ? settingsPage() : consolePage();
   $("#content").innerHTML = body;
   tick();
 }
@@ -306,22 +310,22 @@ function overview() {
   return `<section class="hero"><div class="labmark">CCS <span>/</span> Customer service lab</div><h1>The practice floor</h1><p>Take the agent seat or call in as a customer. Choose a case below to start—no sign-in needed.</p><div class="heroactions">${button("Choose a scenario " + I("arrow-right"), "browse()", "orange")}<button class="herohelp" onclick="go('Agent handbook')">Call guide ${I("arrow-up-right")}</button></div></section><ol class="howstrip" aria-label="How practice works"><li><i>1</i><span>Pick a scenario</span></li><li><i>2</i><span>Share the room code</span></li><li><i>3</i><span>Answer the call</span></li></ol>${library(false)}`;
 }
 function library(full) {
-  return `<section id="scenario-shelf" aria-label="Scenario library"><div class="heading"><div><div class="row"><h2 id="scenario-title" tabindex="-1">Scenario library</h2></div><p>The scenario sets your seat. Create a room to place the call; join to answer.</p></div><label class="filter">${I("list-filter")}<select aria-label="Filter scenarios by difficulty" onchange="filter=this.value;refreshCards()">${["All levels", "Beginner", "Intermediate", "Advanced"].map((l) => `<option ${filter === l ? "selected" : ""}>${l}</option>`).join("")}</select>${I("chevron-down")}</label></div>${full ? `<input class="search" aria-label="Search scenarios" placeholder="Search industry or topic…" value="${esc(search)}" oninput="search=this.value;refreshCards()">` : ""}<div class="grid" id="cards">${cards(full)}</div></section>`;
+  return `<section id="scenario-shelf" aria-label="Scenario library"><div class="heading"><div><div class="row"><h2 id="scenario-title" tabindex="-1">Scenario library</h2></div><p>Six desks, eighteen cases. <button class="title-link" style="text-decoration:underline" onclick="go('Settings')">Choose cases in Settings</button>.</p></div><label class="filter">${I("list-filter")}<select aria-label="Filter scenarios by difficulty" onchange="filter=this.value;refreshCards()">${["All levels", "Beginner", "Intermediate", "Advanced"].map((l) => `<option ${filter === l ? "selected" : ""}>${l}</option>`).join("")}</select>${I("chevron-down")}</label></div>${full ? `<input class="search" aria-label="Search scenarios" placeholder="Search industry or topic…" value="${esc(search)}" oninput="search=this.value;refreshCards()">` : ""}<div class="grid" id="cards">${cards(full)}</div></section>`;
 }
 function refreshCards() {
   $("#cards").innerHTML = cards(view === "Scenario library");
 }
 function cards(full) {
   return (
-    D.filter(
+    chosenCases().filter(
       (d) =>
         (filter === "All levels" || d.level === filter) &&
         (!full ||
-          (d.name + " " + d.desc).toLowerCase().includes(search.toLowerCase())),
+          (d.name + " " + d.issue + " " + d.summary).toLowerCase().includes(search.toLowerCase())),
     )
       .map(
         (d) =>
-          `<article class="card" style="--tint:${d.tint};--accent:${d.accent}"><div class="deskcover"><span class="desknumber">${d.direction} <b>0${d.id + 1}</b></span><img src="./assets/desks/${d.code}.svg" alt=""></div><div class="cardbody"><div class="cardline"><span>${d.level}</span><i></i><span>${d.time} min</span><button class="practice-alone" onclick="beginSolo(${d.id})">Practice solo ${I("arrow-up-right")}</button></div><h3><button class="title-link" onclick="briefing(${d.id})" aria-label="Open ${d.name} scenario">${d.name}${I("arrow-up-right")}</button></h3><p>${["Help a patient move a follow-up appointment.", "Call back a subscriber about a reported Wi-Fi fault.", "Arrange a return for a customer sent the wrong size.", "Follow up on a reported duplicate card charge.", "Call a guest about a requested booking change.", "Explain an unexpected mobile data charge."][d.id]}</p></div><div class="room-actions"><button onclick="startLive(${d.id})">${I("plus")} Create room</button><button onclick="joinForm(${d.id})">Join room ${I("arrow-right")}</button></div></article>`,
+          `<article class="card" style="--tint:${d.tint};--accent:${d.accent}"><div class="deskcover"><span class="desknumber">${d.direction} <b>0${d.desk + 1}</b></span><img src="./assets/desks/${d.code}.svg" alt=""></div><div class="cardbody"><div class="cardline"><span>${d.level}</span><i></i><span>${d.time} min</span><button class="practice-alone" onclick="beginSolo(${d.id})">Practice solo ${I("arrow-up-right")}</button></div><h3><button class="title-link" onclick="briefing(${d.id})" aria-label="Open ${d.name} scenario">${d.name}${I("arrow-up-right")}</button></h3><span class="case-caption">${esc(d.issue)}</span><p>${esc(d.summary)}</p></div><div class="room-actions"><button onclick="startLive(${d.id})">${I("plus")} Create room</button><button onclick="joinForm(${d.id})">Join room ${I("arrow-right")}</button></div></article>`,
       )
       .join("") ||
     '<p class="muted">No matching scenarios. Try a different level or search.</p>'
@@ -380,7 +384,7 @@ function roomPage() {
       "Live call room",
       "Practice together. One person takes the agent seat; the other plays the customer.",
     ) +
-    `<div class="livegrid"><section class="panel"><span class="tile" style="--tint:#fff0e4;--accent:#ad653c">${I("headset")}</span><div class="case-id">01 / CREATE</div><h3>Host a practice call</h3><p>Choose an industry, create your room, and share its code with your partner.</p><label class="field">Practice scenario<select id="roomscenario">${D.map((d) => `<option value="${d.id}">${d.name}</option>`).join("")}</select></label>${button("Create live room", "startLive(+$('#roomscenario').value)", "orange", "plus")}</section><section class="panel"><span class="tile" style="--tint:#e9f1fa;--accent:#5483ae">${I("users")}</span><div class="case-id">02 / JOIN</div><h3>Join your partner</h3><p>Enter the creator’s code to open the right scenario and answer the call.</p><form onsubmit="event.preventDefault();joinLive(this.code.value)"><label class="field">Room code<input name="code" placeholder="e.g. 2K7BRM"  required autocapitalize="characters" autocomplete="off"></label><button class="btn dark">${I("radio")}Join room</button></form></section></div><div class="privacy">${I("shield-check")}No account or database required. Audio is live and is never recorded by EJNHS CCS CRM.</div>`
+    `<div class="livegrid"><section class="panel"><span class="tile" style="--tint:#fff0e4;--accent:#ad653c">${I("headset")}</span><div class="case-id">01 / CREATE</div><h3>Host a practice call</h3><p>Choose an industry, create your room, and share its code with your partner.</p><label class="field">Practice scenario<select id="roomscenario">${D.map((d) => `<option value="${d.id}">${d.name} — ${d.issue} (${d.direction})</option>`).join("")}</select></label>${button("Create live room", "startLive(+$('#roomscenario').value)", "orange", "plus")}</section><section class="panel"><span class="tile" style="--tint:#e9f1fa;--accent:#5483ae">${I("users")}</span><div class="case-id">02 / JOIN</div><h3>Join your partner</h3><p>Enter the creator’s code to open the right scenario and answer the call.</p><form onsubmit="event.preventDefault();joinLive(this.code.value)"><label class="field">Room code<input name="code" placeholder="e.g. 2K7BRM"  required autocapitalize="characters" autocomplete="off"></label><button class="btn dark">${I("radio")}Join room</button></form></section></div><div class="privacy">${I("shield-check")}No account or database required. Audio is live and is never recorded by EJNHS CCS CRM.</div>`
   );
 }
 function historyPage() {
@@ -391,14 +395,14 @@ function historyPage() {
       "Completed practice sessions saved on this browser.",
     ) +
     (historyList.length
-      ? `<div class="panel">${historyList.map((s, i) => `<div class="historyitem">${tile(D[s.id])}<div><b>${D[s.id].name}</b><small>${new Date(s.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })} · ${s.mode === "solo" ? "Solo practice" : "Live role-play"} · ${duration(s.seconds)}</small></div><span class="tag">${esc(s.outcome)}</span><button class="iconbtn" aria-label="View session details" onclick="review(${i})">${I("chevron-right")}</button></div>`).join("")}</div><div class="actions" style="margin-top:12px">${button("Clear saved history", "confirmHistoryReset()", "", "history")}</div>`
+      ? `<div class="panel">${historyList.map((s, i) => `<div class="historyitem">${tile(D[s.id])}<div><b>${D[s.id].name} · ${D[s.id].issue}</b><small>${new Date(s.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })} · ${s.mode === "solo" ? "Solo practice" : "Live role-play"} · ${duration(s.seconds)}</small></div><span class="tag">${esc(s.outcome)}</span><button class="iconbtn" aria-label="View session details" onclick="review(${i})">${I("chevron-right")}</button></div>`).join("")}</div><div class="actions" style="margin-top:12px">${button("Clear saved history", "confirmHistoryReset()", "", "history")}</div>`
       : `<div class="panel empty">${I("history")}<h3>Your first session starts here</h3><p>Complete a scenario and its wrap-up to see your case notes and practice time here.</p>${button("Explore scenarios", "go('Scenario library')", "orange")}</div>`)
   );
 }
 function review(i) {
   let s = historyList[i];
   show(
-    `<div class="eyebrow gray">COMPLETED CASE / ${D[s.id].code}</div><h2>${D[s.id].name}</h2><p>${esc(s.outcome)} · ${duration(s.seconds)} · ${new Date(s.at).toLocaleString()}</p><div class="brief"><b>After-call notes</b><p style="white-space:pre-wrap">${esc(s.notes)}</p></div><b>Case documentation</b><p>${s.verified ? "Account verified" : "Verification not completed"} · ${s.done ? D[s.id].result : "No account action recorded"}</p></div>`,
+    `<div class="eyebrow gray">COMPLETED CASE / ${D[s.id].code}</div><h2>${D[s.id].issue}</h2><p>${esc(s.outcome)} · ${duration(s.seconds)} · ${new Date(s.at).toLocaleString()}</p><div class="brief"><b>After-call notes</b><p style="white-space:pre-wrap">${esc(s.notes)}</p></div><b>Case documentation</b><p>${s.verified ? "Account verified" : "Verification not completed"} · ${s.done ? D[s.id].result : "No account action recorded"}</p></div>`,
   );
 }
 function guide() {
@@ -536,7 +540,7 @@ function greet() {
   active.logs.push(
     {
       from: "Agent",
-      text: "Thank you for calling. I can help with that. May I confirm your account name and training reference?",
+      text:D[active.id].direction==="Outbound"?"Hello, I’m following up on your service request. Is this a good time? May I confirm your training reference?":"Thank you for calling. I can help with that. May I confirm your account name and training reference?",
     },
     {
       from: "Customer",
@@ -724,7 +728,7 @@ function callControls() {
   if (!l) return "";
   if (l.phase === "ended")
     return `<div class="actions connection-note"><span class="line-state">${I("phone-off")} Audio disconnected</span>${button(active.role === "Agent" ? "Discard session" : "Return to scenarios", active.role === "Agent" ? "leavePrompt()" : "disconnect();active=null;go('Scenario library')", "", "log-out")}</div>`;
-  return `<div class="actions connection-note">${button(l.micOn ? "Mute microphone" : l.stream ? "Unmute microphone" : "Enable microphone", "toggleMic()", "", l.micOn ? "mic" : "mic-off")}${button("Play partner audio", "playAudio()", "", "volume-2")}${button("End call", "endCall()", "end-call", "phone-off")}<span class="line-state">${I(l.peerMic ? "mic" : "mic-off")}${l.peerMic ? "Partner mic on" : "Partner mic off"}</span></div>`;
+  return `<div class="actions connection-note">${button(l.micOn ? "Mute microphone" : l.stream ? "Unmute microphone" : "Enable microphone", "toggleMic()", "", l.micOn ? "mic" : "mic-off")}${button("Play partner audio", "playAudio()", "", "volume-2")}${button("End call", "endCall()", "end-call", "phone-off")}<span class="line-state">${I(l.peerMic ? "mic" : "mic-off")}${l.peerMic ? "Partner mic on" : "Partner mic off"}</span><span class="route-status">${esc(l.routeLabel||"")}</span></div>`;
 }
 
 function lobby() {

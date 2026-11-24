@@ -1,17 +1,18 @@
 // Cache only this app's public shell. Never cache room traffic or case notes.
 const PREFIX = "relaydesk-static:" + self.registration.scope + ":";
-const CACHE = PREFIX + "v6";
+const CACHE = PREFIX + "v7";
 const FILES = [
   "./index.html",
-  "./css/main.css?v=4",
-  "./js/app.js?v=6",
-  "./js/ringer.js?v=2",
-  "./js/network-config.js?v=6",
-  "./js/network.js?v=6",
-  "./js/room-setup.js?v=6",
-  "./js/p2p.js?v=6",
-  "./js/storage.js?v=1",
-  "./js/reset.js?v=1",
+  "./css/main.css?v=7",
+  "./js/app.js?v=7",
+  "./js/scenarios.js?v=7", "./js/settings.js?v=7", "./js/media-call.js?v=7",
+  "./js/ringer.js?v=7",
+  "./js/network-config.js?v=7",
+  "./js/network.js?v=7",
+  "./js/room-setup.js?v=7",
+  "./js/p2p.js?v=7",
+  "./js/storage.js?v=7",
+  "./js/reset.js?v=7",
   "./vendor/peerjs.min.js",
   "./manifest.json",
   "./assets/fonts/source-sans-3-latin.woff2",

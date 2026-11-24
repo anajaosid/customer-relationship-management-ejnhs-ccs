@@ -19,10 +19,11 @@ function participant(role) {
   return [active.me, active.partner].find((p) => p?.role === role) || null;
 }
 // The first character identifies the case, so a pasted code selects the correct desk and seat.
+const casePrefixes="123456ABCDEFGHJKLM";
 const codeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 function makeRoomCode(id) {
   return (
-    String(id + 1) +
+    casePrefixes[id] +
     Array.from(
       crypto.getRandomValues(new Uint8Array(5)),
       (b) => codeAlphabet[b % 32],
@@ -37,7 +38,7 @@ function normalizeCode(value) {
 }
 function codeDesk(code) {
   const c = normalizeCode(code);
-  return /^[1-6][A-HJ-NP-Z2-9]{5}$/.test(c) ? Number(c[0]) - 1 : null;
+  const id=casePrefixes.indexOf(c[0]);return c.length===6 && id>=0 && /^[A-HJ-NP-Z2-9]{5}$/.test(c.slice(1)) && D[id] ? id : null;
 }
 function assignedSeat(mode, id) {
   const caller = D[id]?.direction === "Outbound" ? "Agent" : "Customer";
@@ -61,7 +62,7 @@ function roomSetup(mode, id, code = "", error = "", draft = null) {
 function seatSummary(mode, id) {
   const d = D[id];
   return d
-    ? `<b>${esc(d.name)} · ${d.direction} call</b><p>Your seat: <strong>${assignedSeat(mode, id)}</strong> · ${mode === "create" ? "You call your partner." : "You answer the call."}</p>`
+    ? `<b>${esc(d.issue)} · ${d.direction} call</b><p>Your seat: <strong>${assignedSeat(mode, id)}</strong> · ${mode === "create" ? "You call your partner." : "You answer the call."}</p>`
     : "<p>The room code will identify your scenario and role.</p>";
 }
 function updateSeat(f, fallback) {

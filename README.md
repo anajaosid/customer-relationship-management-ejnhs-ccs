@@ -17,6 +17,8 @@ If you prefer keeping your existing `/docs` Pages setting, place the **same extr
 | `index.html` | Entry page, stylesheet, and script loading order |
 | `css/main.css` | The responsive interface, fonts, navigation, forms and call controls |
 | `js/app.js` | Scenario data, screens, case notes and solo practice |
+| `js/scenarios.js`, `js/settings.js` | Case library, saved selections, voice preferences and creator credits |
+| `js/media-call.js` | PeerJS microphone calls with fallback to the room connection |
 | `js/p2p.js` | PeerJS room discovery, room codes, WebRTC voice, chat, microphone controls and hang-up |
 | `js/ringer.js` | Local double-ring sound on incoming calls, with a silence control |
 | `js/storage.js` | Browser-local history reads and writes |
@@ -29,12 +31,14 @@ The CSS and JavaScript are readable source files, not build artifacts. After edi
 
 ## Practice
 
+In **Settings → Cases on your practice floor**, choose one of three cases for each of the six industries. Each choice is saved on this browser and updates the practice-floor card. Both solo practice and live rooms use the selected case.
+
 Choose **Create room**, enter a practice name and keep the tab open. The scenario determines both seats:
 
 | Scenario | Creator (caller) | Joiner (answers) |
 | --- | --- | --- |
-| Inbound: Healthcare, Retail, Telecommunications | Customer | Agent |
-| Outbound: Network support, Banking, Travel | Agent | Customer |
+| Any inbound case | Customer | Agent |
+| Any outbound case | Agent | Customer |
 
 Share the six-character code or invitation. **Join with a code** selects the correct case and role, even if the joiner initially opened another desk. The customer can enter fictional contact details and a reason for calling. The joiner's device rings, and the agent always gets the CRM controls. Neither student needs an account. Old room codes from previous versions are not valid in this release.
 
@@ -53,3 +57,7 @@ Offline practice requires the app to have finished caching during an earlier onl
 ## Different Wi-Fi or mobile data
 
 Click **Test network** in room setup to check TURN reachability. See [NETWORK-SETUP.md](NETWORK-SETUP.md) for the instructor relay setup, troubleshooting, and a two-device acceptance test.
+
+## Created by
+
+Sid Anajao — backend development. Luiggie Placiente — UI design. Cley Urbano — planning and testing.

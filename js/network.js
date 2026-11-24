@@ -5,6 +5,13 @@ async function roomIceConfig() {
     custom.iceServers || window.peerjs?.util?.defaultConfig?.iceServers;
   if (!iceServers?.length)
     iceServers = [{ urls: "stun:stun.l.google.com:19302" }];
+  // Keep both discovery services from the supplied p2p.js. Do not replace TURN
+  // entries with a STUN-only list: carrier NAT and restrictive Wi-Fi may need a relay.
+  if(!custom.iceServers){
+    iceServers=[...iceServers];for(const url of ['stun:stun.l.google.com:19302','stun:stun.cloudflare.com:3478']){
+      if(!iceServers.some(s=>[s.urls].flat().includes(url)))iceServers.push({urls:url});
+    }
+  }
   if (settings.browserIceServersUrl || settings.credentialEndpoint) {
     const u = new URL(
       settings.browserIceServersUrl || settings.credentialEndpoint,

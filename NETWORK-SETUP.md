@@ -10,7 +10,7 @@
 
 - **Room not found:** The public signaling service did not find an active creator at that code. Check the latest deployment, leave the host tab open and create a new code. The two browsers must use the same signaling service.
 - **Timed out:** The signaling service or connection path may be blocked. Try **Test network** on both devices. This tests the ability to obtain a TURN relay candidate; it does not prove end-to-end audio. A failed initial join can be retried without intentionally closing the waiting host's room.
-- **Connected but silent:** Check microphone permission, volume, mute, and Play partner audio. Chat and audio reuse the room's negotiated WebRTC connection, avoiding a second network traversal.
+- **Connected but silent:** Check microphone permission, volume, mute, and Play partner audio. By default a PeerJS microphone call starts after the joiner answers. If that path fails, voice falls back to the room’s existing WebRTC connection. In Settings you can also choose that connection directly for the next room you create.
 - **Still stuck:** Send the public Pages URL, the exact error from the joiner, browser/device names, and whether the creator saw a join attempt. Never send relay credentials.
 
 ## Restricted networks — still hosted only on GitHub Pages
@@ -20,3 +20,7 @@ The bundled PeerJS configuration provides best-effort NAT traversal. If a networ
 Optional for the site owner: obtain a managed TURN provider’s **browser-safe, restricted, read-only ICE credentials URL** and set `browserIceServersUrl` in `js/network-config.js`. This is a GET endpoint that supports CORS from your site and returns an RTCIceServer array or `{iceServers:[...]}`. Include TURN/TLS on port 443 if supported. Example provider setup: https://www.metered.ca/tools/openrelay/ . This uses a managed networking service, not a second website deployment. Do not paste an admin token, private API key or permanent private TURN password into GitHub. Anyone can read the site files, so use provider restrictions, quotas and expiry.
 
 Publish, reload, and run **Test network** on each device. To verify only the relayed route, set `relayOnly: true` temporarily, create a new room and check both directions. Restore `false` afterward. Leave all optional URLs empty for ordinary direct calls with the public defaults.
+
+## Two-device check
+
+Open the same deployed HTTPS address on two devices. Test once on shared Wi-Fi, then create a fresh room with one phone on mobile data (Wi-Fi off). Speak a different phrase on each end and have the other person repeat it. Test mute, chat and hang-up. Try an outbound and an inbound case to check who answers. A direct or relayed route label describes the active WebRTC path; it is not a guarantee for other networks.
